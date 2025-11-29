@@ -99,8 +99,10 @@ export const storageService = {
   async getEntriesByMonth(year: number, month: number): Promise<DiaryEntry[]> {
     if (USE_SUPABASE) {
       // month is 0-indexed in JS Date
-      const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-      const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+      // Use local date construction to avoid timezone shifts from toISOString()
+      const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
       const { data, error } = await supabase
         .from('entries')
