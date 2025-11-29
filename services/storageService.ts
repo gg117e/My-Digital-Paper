@@ -41,7 +41,7 @@ export const storageService = {
           onConflict: 'date'
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Supabase upsert error:', error);
@@ -81,9 +81,9 @@ export const storageService = {
         .from('entries')
         .select('*')
         .eq('date', dateStr)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+      if (error) {
         console.error('Supabase get error:', error);
         return null;
       }
