@@ -5,12 +5,16 @@
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
+-- 既存のテーブルを削除（titleカラムを追加するため）
+drop table if exists public.entries cascade;
+
 -- ====================================
 -- テーブル: entries (日記エントリ)
 -- ====================================
-create table if not exists public.entries (
+create table public.entries (
   id uuid default uuid_generate_v4() primary key,
   date date not null unique,
+  title text default '',
   content text default '',
   mood text default 'neutral',
   tags text[] default '{}',

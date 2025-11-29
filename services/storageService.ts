@@ -5,7 +5,7 @@ import { supabase } from '../utils/supabase';
 // Falls back to localStorage if Supabase is not configured
 
 const STORAGE_KEY = 'diary_entries_db';
-const USE_SUPABASE = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+const USE_SUPABASE = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 
 // LocalStorage fallback functions
 const getDb = (): Record<string, DiaryEntry> => {
@@ -33,6 +33,7 @@ export const storageService = {
         .from('entries')
         .upsert({
           date: dateField,
+          title: entry.title || '',
           content: entry.content || '',
           tags: entry.tags || [],
           mood: entry.mood || 'neutral',
