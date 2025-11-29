@@ -15,11 +15,12 @@ export const useDiary = () => {
     }
   }, []);
 
-  const saveEntry = useCallback(async (date: string, content: string, tags: string[], mood?: string) => {
+  const saveEntry = useCallback(async (date: string, title: string, content: string, tags: string[], mood?: string) => {
     setSaving(true);
     try {
       const result = await storageService.upsertEntry({
         date,
+        title,
         content,
         tags,
         mood: mood || 'neutral'

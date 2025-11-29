@@ -46,7 +46,8 @@ export const HomePage: React.FC = () => {
               searchResults.map(entry => (
                 <Link to={`/entry/${entry.date}`} key={entry.id} className="block p-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
                   <div className="text-xs text-gray-400 mb-1">{entry.date}</div>
-                  <div className="font-medium text-gray-800 line-clamp-2">{entry.content.slice(0, 100) || '内容なし'}</div>
+                  <div className="font-medium text-gray-800 truncate">{entry.title || entry.content.slice(0, 50) || '内容なし'}</div>
+                  {entry.title && <div className="text-sm text-gray-500 line-clamp-1 mt-1">{entry.content.slice(0, 60)}</div>}
                 </Link>
               ))
             ) : (

@@ -52,7 +52,7 @@ export const ReviewSection: React.FC = () => {
                 </span>
               </div>
               <h3 className="font-medium text-gray-800 mb-1 line-clamp-1">
-                {format(new Date(entry.date), 'M月d日', { locale: ja })}
+                {entry.title || format(new Date(entry.date), 'M月d日', { locale: ja })}
               </h3>
               <p className="text-sm text-gray-500 line-clamp-2">
                 {entry.content || '...'}
@@ -77,7 +77,7 @@ export const ReviewSection: React.FC = () => {
               </span>
             </div>
              <h3 className="font-medium text-gray-800 mb-1 line-clamp-1">
-                {format(new Date(random.date), 'M月d日', { locale: ja })}
+                {random.title || format(new Date(random.date), 'M月d日', { locale: ja })}
               </h3>
             <p className="text-sm text-gray-500 line-clamp-2">
               {random.content || '...'}

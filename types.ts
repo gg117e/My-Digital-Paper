@@ -51,6 +51,7 @@ export interface Database {
 export interface DiaryEntry {
   id: string;
   date: string; // ISO YYYY-MM-DD
+  title?: string; // Optional title field
   content: string;
   mood: string;
   tags: string[];
