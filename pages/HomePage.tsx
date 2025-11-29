@@ -44,9 +44,9 @@ export const HomePage: React.FC = () => {
           <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 max-h-60 overflow-y-auto z-10">
             {searchResults.length > 0 ? (
               searchResults.map(entry => (
-                <Link to={`/entry/${entry.entry_date}`} key={entry.id} className="block p-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
-                  <div className="text-xs text-gray-400 mb-1">{entry.entry_date}</div>
-                  <div className="font-medium text-gray-800 truncate">{entry.title || '無題'}</div>
+                <Link to={`/entry/${entry.date}`} key={entry.id} className="block p-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                  <div className="text-xs text-gray-400 mb-1">{entry.date}</div>
+                  <div className="font-medium text-gray-800 line-clamp-2">{entry.content.slice(0, 100) || '内容なし'}</div>
                 </Link>
               ))
             ) : (

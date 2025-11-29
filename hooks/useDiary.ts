@@ -15,15 +15,14 @@ export const useDiary = () => {
     }
   }, []);
 
-  const saveEntry = useCallback(async (date: string, title: string, content: string, tags: string[]) => {
+  const saveEntry = useCallback(async (date: string, content: string, tags: string[], mood?: string) => {
     setSaving(true);
     try {
-      // Don't save empty entries if they don't exist yet, but we rely on upsert logic
       const result = await storageService.upsertEntry({
-        entry_date: date,
-        title,
+        date,
         content,
-        tags
+        tags,
+        mood: mood || 'neutral'
       });
       return result;
     } finally {
@@ -37,7 +36,7 @@ export const useDiary = () => {
     const onThisDay = await storageService.getOnThisDayEntries(today.getMonth(), today.getDate());
     
     // Filter out today from "On this day" if it exists
-    const pastEntries = onThisDay.filter(e => e.entry_date !== new Date().toISOString().split('T')[0]);
+    const pastEntries = onThisDay.filter(e => e.date !== new Date().toISOString().split('T')[0]);
 
     let randomEntry: DiaryEntry | null = null;
     if (pastEntries.length < 3) {
@@ -63,7 +62,7 @@ export const useDiary = () => {
       } else {
         // Markdown format
         content = entries.map(e => (
-          `# ${e.entry_date} ${e.title ? '- ' + e.title : ''}\n\n${e.content}\n\nTags: ${e.tags.join(', ')}\n\n---\n`
+          `# ${e.date}\n\n${e.content}\n\nTags: ${e.tags.join(', ')}\n\nMood: ${e.mood}\n\n---\n`
         )).join('\n');
         mimeType = 'text/markdown';
         extension = 'md';

@@ -70,7 +70,7 @@ export const CalendarGrid: React.FC = () => {
         
         {daysInMonth.map((day) => {
           const isoDate = format(day, 'yyyy-MM-dd');
-          const hasEntry = entries.some(e => e.entry_date === isoDate);
+          const hasEntry = entries.some(e => e.date === isoDate);
           const isToday = isSameDay(day, new Date());
 
           return (

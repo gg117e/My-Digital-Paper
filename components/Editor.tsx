@@ -9,7 +9,6 @@ interface Props {
 
 export const Editor: React.FC<Props> = ({ date }) => {
   const { getEntry, saveEntry, saving } = useDiary();
-  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
@@ -24,11 +23,9 @@ export const Editor: React.FC<Props> = ({ date }) => {
       setInitialLoading(true);
       const entry = await getEntry(date);
       if (entry) {
-        setTitle(entry.title || '');
         setContent(entry.content || '');
         setTags(entry.tags || []);
       } else {
-        setTitle('');
         setContent('');
         setTags([]);
       }
@@ -37,20 +34,19 @@ export const Editor: React.FC<Props> = ({ date }) => {
     load();
   }, [date, getEntry]);
 
-  const handleSave = async (t: string, c: string, tg: string[]) => {
-    await saveEntry(date, t, c, tg);
+  const handleSave = async (c: string, tg: string[]) => {
+    await saveEntry(date, c, tg);
     setLastSaved(new Date());
   };
 
-  const handleChange = (newTitle: string, newContent: string, newTags: string[]) => {
-    setTitle(newTitle);
+  const handleChange = (newContent: string, newTags: string[]) => {
     setContent(newContent);
     setTags(newTags);
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     
     timeoutRef.current = setTimeout(() => {
-      handleSave(newTitle, newContent, newTags);
+      handleSave(newContent, newTags);
     }, 1000); // Auto-save after 1s inactivity
   };
 
@@ -59,13 +55,13 @@ export const Editor: React.FC<Props> = ({ date }) => {
       e.preventDefault();
       const newTags = [...tags, tagInput.trim()];
       setTagInput('');
-      handleChange(title, content, newTags);
+      handleChange(content, newTags);
     }
   };
 
   const removeTag = (tagToRemove: string) => {
     const newTags = tags.filter(t => t !== tagToRemove);
-    handleChange(title, content, newTags);
+    handleChange(content, newTags);
   };
 
   if (initialLoading) return <div className="p-8 text-center text-gray-400">Loading...</div>;
@@ -80,13 +76,6 @@ export const Editor: React.FC<Props> = ({ date }) => {
           <span className="flex items-center gap-1 text-green-600"><Check size={12} /> Saved {lastSaved.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
         ) : null}
       </div>
-
-      <AutoResizeTextarea
-        value={title}
-        onChange={(e) => handleChange(e.target.value, content, tags)}
-        placeholder="タイトル"
-        className="w-full bg-transparent text-2xl font-bold text-gray-800 placeholder-gray-300 focus:outline-none mb-6"
-      />
 
       <div className="mb-6 flex flex-wrap gap-2 items-center">
         {tags.map(tag => (
@@ -111,7 +100,7 @@ export const Editor: React.FC<Props> = ({ date }) => {
 
       <AutoResizeTextarea
         value={content}
-        onChange={(e) => handleChange(title, e.target.value, tags)}
+        onChange={(e) => handleChange(e.target.value, tags)}
         placeholder="今日はどんな1日でしたか？"
         className="w-full bg-transparent text-base leading-relaxed text-gray-700 placeholder-gray-300 focus:outline-none min-h-[300px]"
       />

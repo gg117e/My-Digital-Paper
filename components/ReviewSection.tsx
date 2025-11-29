@@ -36,11 +36,11 @@ export const ReviewSection: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* On This Day Cards */}
         {onThisDay.slice(0, 2).map((entry) => {
-          const yearsAgo = differenceInYears(new Date(), new Date(entry.entry_date));
+          const yearsAgo = differenceInYears(new Date(), new Date(entry.date));
           return (
             <Link 
               key={entry.id} 
-              to={`/entry/${entry.entry_date}`}
+              to={`/entry/${entry.date}`}
               className="group block p-5 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
             >
               <div className="flex items-center justify-between mb-2">
@@ -48,11 +48,11 @@ export const ReviewSection: React.FC = () => {
                   {yearsAgo}年前
                 </span>
                 <span className="text-xs text-gray-400">
-                  {format(new Date(entry.entry_date), 'yyyy年', { locale: ja })}
+                  {format(new Date(entry.date), 'yyyy年', { locale: ja })}
                 </span>
               </div>
               <h3 className="font-medium text-gray-800 mb-1 line-clamp-1">
-                {entry.title || '無題'}
+                {format(new Date(entry.date), 'M月d日', { locale: ja })}
               </h3>
               <p className="text-sm text-gray-500 line-clamp-2">
                 {entry.content || '...'}
@@ -64,7 +64,7 @@ export const ReviewSection: React.FC = () => {
         {/* Random Entry Card (if showing) */}
         {random && onThisDay.length < 2 && (
           <Link 
-            to={`/entry/${random.entry_date}`}
+            to={`/entry/${random.date}`}
             className="group block p-5 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
           >
             <div className="flex items-center justify-between mb-2">
@@ -73,11 +73,11 @@ export const ReviewSection: React.FC = () => {
                 過去の日記
               </span>
               <span className="text-xs text-gray-400">
-                {format(new Date(random.entry_date), 'yyyy/MM/dd')}
+                {format(new Date(random.date), 'yyyy/MM/dd')}
               </span>
             </div>
              <h3 className="font-medium text-gray-800 mb-1 line-clamp-1">
-                {random.title || '無題'}
+                {format(new Date(random.date), 'M月d日', { locale: ja })}
               </h3>
             <p className="text-sm text-gray-500 line-clamp-2">
               {random.content || '...'}

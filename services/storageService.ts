@@ -1,11 +1,15 @@
 import { DiaryEntry } from '../types';
+import { supabase } from '../utils/supabase';
 
-// This service mocks the backend behavior using LocalStorage so the app is usable immediately.
-// In a real implementation, this would be replaced by Supabase client calls.
+// This service now uses Supabase as the backend
+// Falls back to localStorage if Supabase is not configured
 
 const STORAGE_KEY = 'diary_entries_db';
+const USE_SUPABASE = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
+// LocalStorage fallback functions
 const getDb = (): Record<string, DiaryEntry> => {
+  if (typeof window === 'undefined') return {};
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : {};
@@ -15,76 +19,198 @@ const getDb = (): Record<string, DiaryEntry> => {
 };
 
 const saveDb = (db: Record<string, DiaryEntry>) => {
+  if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 };
 
 export const storageService = {
-  async upsertEntry(entry: Omit<DiaryEntry, 'id' | 'created_at' | 'updated_at'>): Promise<DiaryEntry> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    const db = getDb();
-    const existingId = Object.values(db).find(e => e.entry_date === entry.entry_date)?.id;
+  async upsertEntry(entry: { date?: string; entry_date?: string; content?: string; tags?: string[]; mood?: string }): Promise<DiaryEntry> {
+    // Support both 'date' and 'entry_date' field names
+    const dateField = entry.date || entry.entry_date || new Date().toISOString().split('T')[0];
     
-    const now = new Date().toISOString();
-    const id = existingId || crypto.randomUUID();
+    if (USE_SUPABASE) {
+      const { data, error } = await supabase
+        .from('entries')
+        .upsert({
+          date: dateField,
+          content: entry.content || '',
+          tags: entry.tags || [],
+          mood: entry.mood || 'neutral',
+        }, {
+          onConflict: 'date'
+        })
+        .select()
+        .single();
 
-    const newEntry: DiaryEntry = {
-      ...entry,
-      id,
-      created_at: existingId ? db[existingId].created_at : now,
-      updated_at: now,
-    };
+      if (error) {
+        console.error('Supabase upsert error:', error);
+        throw error;
+      }
 
-    db[id] = newEntry;
-    saveDb(db);
-    return newEntry;
+      return data as DiaryEntry;
+    } else {
+      // LocalStorage fallback
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const db = getDb();
+      const existingId = Object.values(db).find(e => e.date === dateField)?.id;
+      
+      const now = new Date().toISOString();
+      const id = existingId || crypto.randomUUID();
+
+      const newEntry: DiaryEntry = {
+        id,
+        date: dateField,
+        content: entry.content || '',
+        tags: entry.tags || [],
+        mood: entry.mood || 'neutral',
+        created_at: existingId ? db[existingId].created_at : now,
+        updated_at: now,
+      };
+
+      db[id] = newEntry;
+      saveDb(db);
+      return newEntry;
+    }
   },
 
   async getEntryByDate(dateStr: string): Promise<DiaryEntry | null> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const db = getDb();
-    return Object.values(db).find(e => e.entry_date === dateStr) || null;
+    if (USE_SUPABASE) {
+      const { data, error } = await supabase
+        .from('entries')
+        .select('*')
+        .eq('date', dateStr)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        console.error('Supabase get error:', error);
+        return null;
+      }
+
+      return data as DiaryEntry | null;
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const db = getDb();
+      return Object.values(db).find(e => e.date === dateStr) || null;
+    }
   },
 
   async getEntriesByMonth(year: number, month: number): Promise<DiaryEntry[]> {
-    const db = getDb();
-    // Month is 0-indexed in JS Date, but let's assume 1-indexed input for clarity or match JS
-    return Object.values(db).filter(e => {
-      const d = new Date(e.entry_date);
-      return d.getFullYear() === year && d.getMonth() === month;
-    });
+    if (USE_SUPABASE) {
+      // month is 0-indexed in JS Date
+      const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+      const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('entries')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false });
+
+      if (error) {
+        console.error('Supabase getEntriesByMonth error:', error);
+        return [];
+      }
+
+      return data as DiaryEntry[];
+    } else {
+      const db = getDb();
+      return Object.values(db).filter(e => {
+        const d = new Date(e.date);
+        return d.getFullYear() === year && d.getMonth() === month;
+      });
+    }
   },
 
   async getOnThisDayEntries(month: number, day: number): Promise<DiaryEntry[]> {
-    const db = getDb();
-    return Object.values(db).filter(e => {
-      const d = new Date(e.entry_date);
-      // JS getMonth is 0-11. Input expects 0-11 to match date-fns behavior used in hooks
-      return d.getMonth() === month && d.getDate() === day;
-    }).sort((a, b) => b.entry_date.localeCompare(a.entry_date));
+    if (USE_SUPABASE) {
+      // Get all entries and filter by month/day in memory (Supabase doesn't have easy month/day extraction)
+      const { data, error } = await supabase
+        .from('entries')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) {
+        console.error('Supabase getOnThisDayEntries error:', error);
+        return [];
+      }
+
+      return (data as DiaryEntry[]).filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === month && d.getDate() === day;
+      });
+    } else {
+      const db = getDb();
+      return Object.values(db).filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === month && d.getDate() === day;
+      }).sort((a, b) => b.date.localeCompare(a.date));
+    }
   },
 
   async getRandomEntry(): Promise<DiaryEntry | null> {
-    const db = getDb();
-    const values = Object.values(db).filter(e => e.content.trim().length > 0);
-    if (values.length === 0) return null;
-    const randomIndex = Math.floor(Math.random() * values.length);
-    return values[randomIndex];
+    if (USE_SUPABASE) {
+      const { data, error } = await supabase
+        .from('entries')
+        .select('*')
+        .neq('content', '')
+        .order('date', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        return null;
+      }
+
+      const randomIndex = Math.floor(Math.random() * data.length);
+      return data[randomIndex] as DiaryEntry;
+    } else {
+      const db = getDb();
+      const values = Object.values(db).filter(e => e.content.trim().length > 0);
+      if (values.length === 0) return null;
+      const randomIndex = Math.floor(Math.random() * values.length);
+      return values[randomIndex];
+    }
   },
 
   async getAllEntries(): Promise<DiaryEntry[]> {
-    const db = getDb();
-    return Object.values(db).sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+    if (USE_SUPABASE) {
+      const { data, error } = await supabase
+        .from('entries')
+        .select('*')
+        .order('date', { ascending: true });
+
+      if (error) {
+        console.error('Supabase getAllEntries error:', error);
+        return [];
+      }
+
+      return data as DiaryEntry[];
+    } else {
+      const db = getDb();
+      return Object.values(db).sort((a, b) => a.date.localeCompare(b.date));
+    }
   },
 
   async searchEntries(query: string): Promise<DiaryEntry[]> {
-    const db = getDb();
-    const lowerQ = query.toLowerCase();
-    return Object.values(db).filter(e => 
-      e.content.toLowerCase().includes(lowerQ) || 
-      e.title.toLowerCase().includes(lowerQ) ||
-      e.tags.some(t => t.toLowerCase().includes(lowerQ))
-    ).sort((a, b) => b.entry_date.localeCompare(a.entry_date));
+    if (USE_SUPABASE) {
+      const { data, error } = await supabase
+        .from('entries')
+        .select('*')
+        .or(`content.ilike.%${query}%,tags.cs.{${query}}`)
+        .order('date', { ascending: false });
+
+      if (error) {
+        console.error('Supabase searchEntries error:', error);
+        return [];
+      }
+
+      return data as DiaryEntry[];
+    } else {
+      const db = getDb();
+      const lowerQ = query.toLowerCase();
+      return Object.values(db).filter(e => 
+        e.content.toLowerCase().includes(lowerQ) ||
+        e.tags.some(t => t.toLowerCase().includes(lowerQ))
+      ).sort((a, b) => b.date.localeCompare(a.date));
+    }
   }
 };
