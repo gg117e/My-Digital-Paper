@@ -180,7 +180,7 @@ export const storageService = {
       const { data, error } = await supabase
         .from('entries')
         .select('*')
-        .order('date', { ascending: true });
+        .order('date', { ascending: false });
 
       if (error) {
         console.error('Supabase getAllEntries error:', error);
@@ -190,7 +190,7 @@ export const storageService = {
       return data as DiaryEntry[];
     } else {
       const db = getDb();
-      return Object.values(db).sort((a, b) => a.date.localeCompare(b.date));
+      return Object.values(db).sort((a, b) => b.date.localeCompare(a.date));
     }
   },
 

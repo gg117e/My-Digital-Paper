@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ReviewSection } from '../components/ReviewSection';
 import { CalendarGrid } from '../components/CalendarGrid';
-import { Search } from 'lucide-react';
+import { DiaryListView } from '../components/DiaryListView';
+import { Search, Calendar as CalendarIcon, List as ListIcon } from 'lucide-react';
 import { useDiary } from '../hooks/useDiary';
 import { Link } from 'react-router-dom';
 import { formatDateTitle } from '../utils/dateUtils';
@@ -9,6 +10,7 @@ import { formatDateTitle } from '../utils/dateUtils';
 export const HomePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const { search } = useDiary();
 
   const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,8 +61,43 @@ export const HomePage: React.FC = () => {
 
       {!searchQuery && (
         <>
-          <ReviewSection />
-          <CalendarGrid />
+          <div className="flex justify-end px-2">
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`p-2 rounded-md transition-all flex items-center gap-2 ${
+                  viewMode === 'calendar' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+                title="カレンダー表示"
+              >
+                <CalendarIcon size={18} />
+                <span className="text-xs font-medium">カレンダー</span>
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-md transition-all flex items-center gap-2 ${
+                  viewMode === 'list' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+                title="リスト表示"
+              >
+                <ListIcon size={18} />
+                <span className="text-xs font-medium">リスト</span>
+              </button>
+            </div>
+          </div>
+
+          {viewMode === 'calendar' ? (
+            <>
+              <ReviewSection />
+              <CalendarGrid />
+            </>
+          ) : (
+            <DiaryListView />
+          )}
         </>
       )}
     </div>
