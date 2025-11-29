@@ -1,0 +1,5 @@
+{
+  "name": "Digital Paper Diary",
+  "description": "A minimalist, stress-free diary app focused on writing and reflection. Features auto-save, historical review, and data export.",
+  "requestFramePermissions": []
+}
