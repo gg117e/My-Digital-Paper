@@ -68,4 +68,20 @@ export interface CalendarDayStats {
   isCurrentMonth: boolean;
 }
 
-export type MoodType = 'great' | 'good' | 'neutral' | 'bad' | 'terrible';
+export type MoodType = 'excellent' | 'good' | 'normal' | 'bad' | 'terrible';
+
+export interface MoodOption {
+  value: MoodType;
+  emoji: string;
+  label: string;
+  color: string;
+  bgColor: string;
+}
+
+export const MOOD_OPTIONS: MoodOption[] = [
+  { value: 'excellent', emoji: '😆', label: '最高', color: 'text-emerald-600', bgColor: 'bg-emerald-50 hover:bg-emerald-100' },
+  { value: 'good', emoji: '😊', label: '良い', color: 'text-teal-600', bgColor: 'bg-teal-50 hover:bg-teal-100' },
+  { value: 'normal', emoji: '😶', label: '普通', color: 'text-gray-600', bgColor: 'bg-gray-50 hover:bg-gray-100' },
+  { value: 'bad', emoji: '😞', label: '微妙', color: 'text-orange-600', bgColor: 'bg-orange-50 hover:bg-orange-100' },
+  { value: 'terrible', emoji: '😫', label: '最悪', color: 'text-rose-600', bgColor: 'bg-rose-50 hover:bg-rose-100' },
+];

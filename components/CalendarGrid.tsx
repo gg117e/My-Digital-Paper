@@ -14,7 +14,7 @@ import { ja } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useDiary } from '../hooks/useDiary';
-import { DiaryEntry } from '../types';
+import { DiaryEntry, MoodType } from '../types';
 
 export const CalendarGrid: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -70,8 +70,21 @@ export const CalendarGrid: React.FC = () => {
         
         {daysInMonth.map((day) => {
           const isoDate = format(day, 'yyyy-MM-dd');
-          const hasEntry = entries.some(e => e.date === isoDate);
+          const entry = entries.find(e => e.date === isoDate);
+          const hasEntry = !!entry;
           const isToday = isSameDay(day, new Date());
+          
+          // ムードに応じた色を設定
+          const getMoodColor = (mood?: string) => {
+            switch(mood as MoodType) {
+              case 'excellent': return 'bg-emerald-500';
+              case 'good': return 'bg-teal-500';
+              case 'normal': return 'bg-gray-500';
+              case 'bad': return 'bg-orange-500';
+              case 'terrible': return 'bg-rose-500';
+              default: return 'bg-blue-500';
+            }
+          };
 
           return (
             <Link
@@ -86,7 +99,7 @@ export const CalendarGrid: React.FC = () => {
                 {format(day, 'd')}
               </span>
               {hasEntry && (
-                <span className={`absolute bottom-2 w-1 h-1 rounded-full ${isToday ? 'bg-white' : 'bg-blue-500'}`} />
+                <span className={`absolute bottom-2 w-1.5 h-1.5 rounded-full ${isToday ? 'bg-white' : getMoodColor(entry.mood)}`} />
               )}
             </Link>
           );

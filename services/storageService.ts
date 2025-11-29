@@ -36,7 +36,7 @@ export const storageService = {
           title: entry.title || '',
           content: entry.content || '',
           tags: entry.tags || [],
-          mood: entry.mood || 'neutral',
+          mood: entry.mood || 'normal',
         }, {
           onConflict: 'date'
         })
@@ -64,7 +64,7 @@ export const storageService = {
         title: entry.title || '',
         content: entry.content || '',
         tags: entry.tags || [],
-        mood: entry.mood || 'neutral',
+        mood: entry.mood || 'normal',
         created_at: existingId ? db[existingId].created_at : now,
         updated_at: now,
       };

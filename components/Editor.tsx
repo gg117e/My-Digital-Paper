@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDiary } from '../hooks/useDiary';
 import { AutoResizeTextarea } from './AutoResizeTextarea';
+import { MoodSelector } from './MoodSelector';
+import { MoodType } from '../types';
 import { Save, Hash, Check } from 'lucide-react';
 
 interface Props {
@@ -11,6 +13,7 @@ export const Editor: React.FC<Props> = ({ date }) => {
   const { getEntry, saveEntry, saving } = useDiary();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [mood, setMood] = useState<MoodType>('normal');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
@@ -26,10 +29,12 @@ export const Editor: React.FC<Props> = ({ date }) => {
       if (entry) {
         setTitle(entry.title || '');
         setContent(entry.content || '');
+        setMood((entry.mood as MoodType) || 'normal');
         setTags(entry.tags || []);
       } else {
         setTitle('');
         setContent('');
+        setMood('normal');
         setTags([]);
       }
       setInitialLoading(false);
@@ -37,20 +42,21 @@ export const Editor: React.FC<Props> = ({ date }) => {
     load();
   }, [date, getEntry]);
 
-  const handleSave = async (t: string, c: string, tg: string[]) => {
-    await saveEntry(date, t, c, tg);
+  const handleSave = async (t: string, c: string, m: MoodType, tg: string[]) => {
+    await saveEntry(date, t, c, tg, m);
     setLastSaved(new Date());
   };
 
-  const handleChange = (newTitle: string, newContent: string, newTags: string[]) => {
+  const handleChange = (newTitle: string, newContent: string, newMood: MoodType, newTags: string[]) => {
     setTitle(newTitle);
     setContent(newContent);
+    setMood(newMood);
     setTags(newTags);
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     
     timeoutRef.current = setTimeout(() => {
-      handleSave(newTitle, newContent, newTags);
+      handleSave(newTitle, newContent, newMood, newTags);
     }, 1000); // Auto-save after 1s inactivity
   };
 
@@ -59,13 +65,13 @@ export const Editor: React.FC<Props> = ({ date }) => {
       e.preventDefault();
       const newTags = [...tags, tagInput.trim()];
       setTagInput('');
-      handleChange(title, content, newTags);
+      handleChange(title, content, mood, newTags);
     }
   };
 
   const removeTag = (tagToRemove: string) => {
     const newTags = tags.filter(t => t !== tagToRemove);
-    handleChange(title, content, newTags);
+    handleChange(title, content, mood, newTags);
   };
 
   if (initialLoading) return <div className="p-8 text-center text-gray-400">Loading...</div>;
@@ -83,10 +89,12 @@ export const Editor: React.FC<Props> = ({ date }) => {
 
       <AutoResizeTextarea
         value={title}
-        onChange={(e) => handleChange(e.target.value, content, tags)}
+        onChange={(e) => handleChange(e.target.value, content, mood, tags)}
         placeholder="タイトル"
         className="w-full bg-transparent text-2xl font-bold text-gray-800 placeholder-gray-300 focus:outline-none mb-6"
       />
+
+      <MoodSelector selectedMood={mood} onChange={(newMood) => handleChange(title, content, newMood, tags)} />
 
       <div className="mb-6 flex flex-wrap gap-2 items-center">
         {tags.map(tag => (
@@ -111,7 +119,7 @@ export const Editor: React.FC<Props> = ({ date }) => {
 
       <AutoResizeTextarea
         value={content}
-        onChange={(e) => handleChange(title, e.target.value, tags)}
+        onChange={(e) => handleChange(title, e.target.value, mood, tags)}
         placeholder="今日はどんな1日でしたか？"
         className="w-full bg-transparent text-base leading-relaxed text-gray-700 placeholder-gray-300 focus:outline-none min-h-[300px]"
       />
