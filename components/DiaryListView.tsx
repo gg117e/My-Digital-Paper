@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { DiaryEntry } from '../types';
 import { storageService } from '../services/storageService';
 
-export const DiaryListView: React.FC = () => {
+interface DiaryListViewProps {
+  filterMood?: string | null;
+}
+
+export const DiaryListView: React.FC<DiaryListViewProps> = ({ filterMood }) => {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,8 +34,13 @@ export const DiaryListView: React.FC = () => {
     return moods[moodId] || '😶';
   };
 
+  const filteredEntries = useMemo(() => {
+    if (!filterMood) return entries;
+    return entries.filter(e => e.mood === filterMood);
+  }, [entries, filterMood]);
+
   // 年月ごとにグループ化
-  const groupedEntries = entries.reduce((acc, entry) => {
+  const groupedEntries = filteredEntries.reduce((acc, entry) => {
     const monthKey = format(parseISO(entry.date), 'yyyy年 M月', { locale: ja });
     if (!acc[monthKey]) {
       acc[monthKey] = [];
@@ -44,11 +53,11 @@ export const DiaryListView: React.FC = () => {
     return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
   }
 
-  if (entries.length === 0) {
+  if (filteredEntries.length === 0) {
     return (
       <div className="p-12 text-center text-gray-400 bg-white rounded-xl border border-gray-100">
-        <p>まだ日記がありません。</p>
-        <p className="text-sm mt-2">カレンダーの日付をクリックして書いてみましょう！</p>
+        <p>{filterMood ? '条件に一致する日記がありません。' : 'まだ日記がありません。'}</p>
+        {!filterMood && <p className="text-sm mt-2">カレンダーの日付をクリックして書いてみましょう！</p>}
       </div>
     );
   }
