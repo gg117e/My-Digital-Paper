@@ -91,15 +91,20 @@ export const CalendarGrid: React.FC = () => {
               key={isoDate}
               to={`/entry/${isoDate}`}
               className={`
-                aspect-square flex flex-col items-center justify-center rounded-lg relative transition-all
-                ${isToday ? 'bg-gray-900 text-white' : 'hover:bg-gray-50 text-gray-700'}
+                min-h-[80px] p-1.5 flex flex-col items-start justify-start rounded-lg relative transition-all border border-transparent
+                ${isToday ? 'bg-gray-900 text-white' : 'hover:bg-gray-50 text-gray-700 hover:border-gray-200'}
               `}
             >
-              <span className={`text-sm ${isToday ? 'font-bold' : 'font-normal'}`}>
+              <span className={`text-xs mb-1 ${isToday ? 'font-bold' : 'font-medium text-gray-400'}`}>
                 {format(day, 'd')}
               </span>
               {hasEntry && (
-                <span className={`absolute bottom-2 w-1.5 h-1.5 rounded-full ${isToday ? 'bg-white' : getMoodColor(entry.mood)}`} />
+                <div className="w-full flex flex-col gap-1">
+                    <div className={`text-[10px] leading-tight line-clamp-3 break-all ${isToday ? 'text-gray-200' : 'text-gray-600'}`}>
+                        {entry.title || entry.content?.slice(0, 30) || '無題'}
+                    </div>
+                    <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isToday ? 'bg-white' : getMoodColor(entry.mood)}`} />
+                </div>
               )}
             </Link>
           );
