@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDiary } from '../hooks/useDiary';
+import { storageService } from '../services/storageService';
 import { AutoResizeTextarea } from './AutoResizeTextarea';
 import { MoodSelector } from './MoodSelector';
 import { MoodType } from '../types';
@@ -16,6 +17,8 @@ export const Editor: React.FC<Props> = ({ date }) => {
   const [mood, setMood] = useState<MoodType>('normal');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [existingTags, setExistingTags] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
@@ -37,6 +40,13 @@ export const Editor: React.FC<Props> = ({ date }) => {
         setMood('normal');
         setTags([]);
       }
+      
+      // Load existing tags for autocomplete
+      const allEntries = await storageService.getAllEntries();
+      const uniqueTags = new Set<string>();
+      allEntries.forEach(e => e.tags?.forEach(t => uniqueTags.add(t)));
+      setExistingTags(Array.from(uniqueTags));
+
       setInitialLoading(false);
     };
     load();
@@ -74,6 +84,10 @@ export const Editor: React.FC<Props> = ({ date }) => {
     handleChange(title, content, mood, newTags);
   };
 
+  const suggestions = tagInput.trim() 
+    ? existingTags.filter(t => t.toLowerCase().includes(tagInput.toLowerCase()) && !tags.includes(t))
+    : [];
+
   if (initialLoading) return <div className="p-8 text-center text-gray-400">Loading...</div>;
 
   return (
@@ -109,11 +123,35 @@ export const Editor: React.FC<Props> = ({ date }) => {
           <input
             type="text"
             value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
+            onChange={(e) => {
+                setTagInput(e.target.value);
+                setShowSuggestions(true);
+            }}
             onKeyDown={handleAddTag}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             placeholder="タグを追加..."
             className="pl-7 pr-3 py-1 bg-transparent text-sm focus:outline-none placeholder-gray-300 min-w-[100px]"
           />
+          {/* Suggestions Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-100 rounded-lg shadow-lg z-10 min-w-[150px] max-h-40 overflow-y-auto">
+                {suggestions.map(tag => (
+                    <button
+                        key={tag}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                        onClick={() => {
+                            const newTags = [...tags, tag];
+                            setTagInput('');
+                            handleChange(title, content, mood, newTags);
+                            setShowSuggestions(false);
+                        }}
+                    >
+                        #{tag}
+                    </button>
+                ))}
+            </div>
+          )}
         </div>
       </div>
 
