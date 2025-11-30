@@ -7,13 +7,11 @@ import { Search, Calendar as CalendarIcon, List as ListIcon } from 'lucide-react
 import { useDiary } from '../hooks/useDiary';
 import { Link } from 'react-router-dom';
 import { formatDateTitle } from '../utils/dateUtils';
-import { MOOD_OPTIONS } from '../types';
 
 export const HomePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const { search } = useDiary();
 
   const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,32 +64,7 @@ export const HomePage: React.FC = () => {
         <>
           <StatsSection />
           
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-2">
-            {/* Mood Filter (Visible only in List mode) */}
-            {viewMode === 'list' ? (
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto">
-                <span className="text-xs text-gray-400 font-medium whitespace-nowrap">絞り込み:</span>
-                <button 
-                  onClick={() => setSelectedMood(null)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${!selectedMood ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
-                >
-                  全て
-                </button>
-                {MOOD_OPTIONS.map(mood => (
-                  <button
-                    key={mood.value}
-                    onClick={() => setSelectedMood(selectedMood === mood.value ? null : mood.value)}
-                    className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center text-lg transition-all ${selectedMood === mood.value ? 'bg-indigo-100 ring-2 ring-indigo-500 scale-110' : 'bg-white border border-gray-200 hover:bg-gray-50 grayscale hover:grayscale-0'}`}
-                    title={mood.label}
-                  >
-                    {mood.emoji}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="hidden sm:block"></div> // Spacer
-            )}
-
+          <div className="flex flex-col sm:flex-row justify-end items-center gap-4 px-2">
             <div className="flex bg-gray-100 p-1 rounded-lg self-end sm:self-auto">
               <button
                 onClick={() => setViewMode('calendar')}
@@ -126,7 +99,7 @@ export const HomePage: React.FC = () => {
               <CalendarGrid />
             </>
           ) : (
-            <DiaryListView filterMood={selectedMood} />
+            <DiaryListView />
           )}
         </>
       )}
