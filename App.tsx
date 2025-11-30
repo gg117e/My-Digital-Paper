@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { EntryPage } from './pages/EntryPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
 import { SettingsModal } from './components/SettingsModal';
 import { Settings, BookOpen } from 'lucide-react';
 import { getISODate } from './utils/dateUtils';
@@ -42,6 +43,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/entry/:date" element={<EntryPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
         </Routes>
       </main>
 

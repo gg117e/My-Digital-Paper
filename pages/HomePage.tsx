@@ -3,7 +3,7 @@ import { ReviewSection } from '../components/ReviewSection';
 import { CalendarGrid } from '../components/CalendarGrid';
 import { DiaryListView } from '../components/DiaryListView';
 import { StatsSection } from '../components/StatsSection';
-import { Search, Calendar as CalendarIcon, List as ListIcon } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, List as ListIcon, BarChart2 } from 'lucide-react';
 import { useDiary } from '../hooks/useDiary';
 import { Link } from 'react-router-dom';
 import { formatDateTitle } from '../utils/dateUtils';
@@ -27,7 +27,10 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="text-center py-6">
+      <div className="text-center py-6 relative">
+        <Link to="/analytics" className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all" title="統計・分析">
+            <BarChart2 size={20} />
+        </Link>
         <h1 className="text-2xl font-bold text-gray-800 tracking-tight mb-2">My Digital Paper</h1>
         <p className="text-muted text-sm">Create, reflect, and remember.</p>
       </div>
