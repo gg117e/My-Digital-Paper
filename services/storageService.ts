@@ -116,7 +116,7 @@ export const storageService = {
         return [];
       }
 
-      return data as DiaryEntry[];
+      return (data || []) as DiaryEntry[];
     } else {
       const db = getDb();
       return Object.values(db).filter(e => {
@@ -139,7 +139,7 @@ export const storageService = {
         return [];
       }
 
-      return (data as DiaryEntry[]).filter(e => {
+      return ((data || []) as DiaryEntry[]).filter(e => {
         const d = new Date(e.date);
         return d.getMonth() === month && d.getDate() === day;
       });
@@ -187,7 +187,7 @@ export const storageService = {
         return [];
       }
 
-      return data as DiaryEntry[];
+      return (data || []) as DiaryEntry[];
     } else {
       const db = getDb();
       return Object.values(db).sort((a, b) => b.date.localeCompare(a.date));
@@ -207,7 +207,7 @@ export const storageService = {
         return [];
       }
 
-      return data as DiaryEntry[];
+      return (data || []) as DiaryEntry[];
     } else {
       const db = getDb();
       const lowerQ = query.toLowerCase();

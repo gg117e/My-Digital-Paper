@@ -20,7 +20,7 @@ export const StatsSection: React.FC = () => {
   }, []);
 
   const stats = useMemo(() => {
-    if (entries.length === 0) return null;
+    if (!entries || entries.length === 0) return null;
 
     const now = new Date();
     // タイムゾーンを考慮して日付文字列を生成
