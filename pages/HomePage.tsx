@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ReviewSection } from '../components/ReviewSection';
 import { CalendarGrid } from '../components/CalendarGrid';
 import { DiaryListView } from '../components/DiaryListView';
+import { StatsSection } from '../components/StatsSection';
 import { Search, Calendar as CalendarIcon, List as ListIcon } from 'lucide-react';
 import { useDiary } from '../hooks/useDiary';
 import { Link } from 'react-router-dom';
@@ -61,6 +62,8 @@ export const HomePage: React.FC = () => {
 
       {!searchQuery && (
         <>
+          <StatsSection />
+          
           <div className="flex justify-end px-2">
             <div className="flex bg-gray-100 p-1 rounded-lg">
               <button
