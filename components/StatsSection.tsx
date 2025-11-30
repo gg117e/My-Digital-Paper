@@ -131,7 +131,7 @@ export const StatsSection: React.FC = () => {
         </div>
         <div>
           <div className="text-2xl font-bold text-gray-800">{stats.monthlyCount}件</div>
-          <div className="text-xs text-gray-500 font-medium">今月の投稿</div>
+          <div className="text-xs text-gray-500 font-medium">月の投稿</div>
         </div>
       </div>
 
