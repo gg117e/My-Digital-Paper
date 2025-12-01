@@ -1,14 +1,15 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Activity, Calendar, BarChart2, PieChart, Hash, TrendingUp, Smile, Frown, Meh } from 'lucide-react';
 import { storageService } from '../services/storageService';
 import { DiaryEntry } from '../types';
-import { format, subDays, eachDayOfInterval, startOfYear, endOfYear, getDay, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, parseISO, getYear } from 'date-fns';
+import { format, subDays, eachDayOfInterval, startOfYear, endOfYear, getDay, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, parseISO, getYear, eachWeekOfInterval, endOfWeek, getDate, startOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 export const AnalyticsPage: React.FC = () => {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -19,11 +20,19 @@ export const AnalyticsPage: React.FC = () => {
     loadData();
   }, []);
 
+  useLayoutEffect(() => {
+    if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+    }
+  }, [loading, entries]);
+
   const stats = useMemo(() => {
     // if (entries.length === 0) return null; // データがなくても表示する
 
     const now = new Date();
     const toDateStr = (d: Date) => format(d, 'yyyy-MM-dd');
+    const yearStart = startOfYear(now);
+    const yearEnd = endOfYear(now);
 
     // 1. Overview
     const totalEntries = entries.length;
@@ -41,10 +50,12 @@ export const AnalyticsPage: React.FC = () => {
         checkDate = subDays(checkDate, 1);
     }
 
-    // 2. Heatmap Data (Last 365 days)
-    const today = new Date();
-    const oneYearAgo = subDays(today, 364);
-    const heatmapDays = eachDayOfInterval({ start: oneYearAgo, end: today });
+    // 2. Heatmap Data (Current Year: Jan 1 - Dec 31)
+    // Align to weeks for grid display
+    const heatmapStart = startOfWeek(yearStart);
+    const heatmapEnd = endOfWeek(yearEnd);
+    const heatmapDays = eachDayOfInterval({ start: heatmapStart, end: heatmapEnd });
+    
     const heatmapData = heatmapDays.map(date => {
         const dateStr = toDateStr(date);
         const entry = entries.find(e => e.date === dateStr);
@@ -59,13 +70,12 @@ export const AnalyticsPage: React.FC = () => {
         return { date, level, dateStr };
     });
 
-    // 3. Monthly Trends (Last 12 months)
-    const last12Months = eachMonthOfInterval({
-        start: subMonths(startOfMonth(now), 11),
-        end: startOfMonth(now)
+    // 3. Monthly Trends (Current Year: Jan - Dec)
+    const monthsOfYear = eachMonthOfInterval({
+        start: yearStart,
+        end: yearEnd
     });
-    const monthlyStats = last12Months.map(monthStart => {
-        // 文字列比較で月ごとの集計を行う（タイムゾーン問題を回避）
+    const monthlyStats = monthsOfYear.map(monthStart => {
         const monthKey = format(monthStart, 'yyyy-MM');
         const count = entries.filter(e => e.date.startsWith(monthKey)).length;
         return { 
@@ -78,10 +88,6 @@ export const AnalyticsPage: React.FC = () => {
     // 4. Day of Week Activity
     const dayCounts = Array(7).fill(0);
     entries.forEach(e => {
-        // YYYY-MM-DD 文字列から直接 Date オブジェクトを生成して曜日を取得
-        // parseISO だと環境によってはずれる可能性があるため、new Date(e.date) を使用
-        // ただし new Date('YYYY-MM-DD') は UTC 扱いになる場合があるため、
-        // date-fns の parseISO を使用しつつ、ローカルタイムであることを意識する
         const day = getDay(parseISO(e.date));
         dayCounts[day]++;
     });
@@ -132,6 +138,27 @@ export const AnalyticsPage: React.FC = () => {
         .sort(([, a], [, b]) => b - a)
         .slice(0, 20);
 
+    // 8. Mood Trend (Daily for Current Year)
+    const moodTrendDays = eachDayOfInterval({ start: yearStart, end: yearEnd });
+    
+    const moodTrend = moodTrendDays.map(day => {
+        const dateStr = toDateStr(day);
+        const entry = entries.find(e => e.date === dateStr);
+        
+        if (!entry) return { date: day, score: null, label: format(day, 'M/d') };
+
+        return { 
+            date: day, 
+            score: moodValue[entry.mood] || 3,
+            label: format(day, 'M/d')
+        };
+    });
+
+    // Filter for visualization (connect points)
+    const validMoodPoints = moodTrend
+        .map((d, i) => ({ ...d, originalIndex: i }))
+        .filter(d => d.score !== null) as { date: Date, score: number, label: string, originalIndex: number }[];
+
     return {
         totalEntries,
         totalChars,
@@ -143,7 +170,9 @@ export const AnalyticsPage: React.FC = () => {
         maxDayCount,
         moodData,
         tagMoodRanking,
-        tagCloud
+        tagCloud,
+        moodTrend,
+        validMoodPoints
     };
   }, [entries]);
 
@@ -185,11 +214,11 @@ export const AnalyticsPage: React.FC = () => {
       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex items-center gap-2 mb-4">
             <Calendar size={18} className="text-green-600" />
-            <h2 className="font-bold text-gray-800">アクティビティ</h2>
+            <h2 className="font-bold text-gray-800">アクティビティ ({getYear(new Date())}年)</h2>
         </div>
         <div className="flex gap-1 overflow-x-auto pb-2">
-            {/* Simplified rendering: 53 weeks columns */}
-            {Array.from({ length: 53 }).map((_, weekIndex) => (
+            {/* Dynamic rendering based on actual weeks in the year */}
+            {Array.from({ length: Math.ceil(stats.heatmapData.length / 7) }).map((_, weekIndex) => (
                 <div key={weekIndex} className="flex flex-col gap-1">
                     {Array.from({ length: 7 }).map((_, dayIndex) => {
                         const dataIndex = weekIndex * 7 + dayIndex;
@@ -227,8 +256,118 @@ export const AnalyticsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* 3. Mood Trend (Daily) */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-2 mb-6">
+            <Activity size={18} className="text-orange-500" />
+            <h2 className="font-bold text-gray-800">気分の推移 ({getYear(new Date())}年・日次)</h2>
+        </div>
+        <div className="h-64 w-full relative flex border border-gray-100 rounded-lg overflow-hidden bg-gray-50/50">
+            {/* Y-axis labels */}
+            <div className="w-12 flex-shrink-0 flex flex-col justify-between text-[10px] text-gray-400 py-4 px-2 border-r border-gray-100 bg-white z-10 font-mono">
+                <span>5.0</span>
+                <span>4.0</span>
+                <span>3.0</span>
+                <span>2.0</span>
+                <span>1.0</span>
+            </div>
+            
+            {/* Scrollable Chart Area */}
+            <div ref={scrollContainerRef} className="flex-1 overflow-x-auto relative custom-scrollbar">
+                 {/* Container for SVG */}
+                 <div style={{ width: `${Math.max(stats.moodTrend.length * 8, 800)}px`, height: '100%' }} className="relative bg-white">
+                    {/* Grid lines */}
+                    <div className="absolute inset-0 flex flex-col justify-between py-4 pointer-events-none">
+                        <div className="border-t border-gray-100 w-full h-0 border-dashed"></div>
+                        <div className="border-t border-gray-100 w-full h-0 border-dashed"></div>
+                        <div className="border-t border-gray-100 w-full h-0 border-dashed"></div>
+                        <div className="border-t border-gray-100 w-full h-0 border-dashed"></div>
+                        <div className="border-t border-gray-100 w-full h-0 border-dashed"></div>
+                    </div>
+
+                    {/* Month Labels (HTML) */}
+                    {stats.moodTrend.map((d, i) => {
+                        if (getDate(d.date) === 1) {
+                            return (
+                                <div
+                                    key={i}
+                                    className="absolute bottom-1 text-[10px] text-gray-400 pointer-events-none"
+                                    style={{ left: `${(i / (stats.moodTrend.length - 1)) * 100}%` }}
+                                >
+                                    {format(d.date, 'M月')}
+                                </div>
+                            );
+                        }
+                        return null;
+                    })}
+
+                    {stats.validMoodPoints.length > 1 ? (
+                        <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="moodGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#F97316" stopOpacity="0.2" />
+                                    <stop offset="100%" stopColor="#F97316" stopOpacity="0.0" />
+                                </linearGradient>
+                            </defs>
+                            
+                            {/* Area Fill */}
+                            <path
+                                d={`
+                                    M ${stats.validMoodPoints[0] ? (stats.validMoodPoints[0].originalIndex / (stats.moodTrend.length - 1)) * 100 : 0},100
+                                    ${stats.validMoodPoints.map((p) => {
+                                        const x = (p.originalIndex / (stats.moodTrend.length - 1)) * 100;
+                                        const y = 100 - ((p.score - 1) / 4) * 100;
+                                        return `L ${x},${y}`;
+                                    }).join(' ')}
+                                    L ${stats.validMoodPoints[stats.validMoodPoints.length-1] ? (stats.validMoodPoints[stats.validMoodPoints.length-1].originalIndex / (stats.moodTrend.length - 1)) * 100 : 100},100
+                                    Z
+                                `}
+                                fill="url(#moodGradient)"
+                                stroke="none"
+                            />
+
+                            {/* Line Stroke */}
+                            <polyline
+                                points={stats.validMoodPoints.map((p) => {
+                                    const x = (p.originalIndex / (stats.moodTrend.length - 1)) * 100;
+                                    const y = 100 - ((p.score - 1) / 4) * 100;
+                                    return `${x},${y}`;
+                                }).join(' ')}
+                                fill="none"
+                                stroke="#F97316"
+                                strokeWidth="1.5"
+                                vectorEffect="non-scaling-stroke"
+                                strokeLinejoin="round"
+                                strokeLinecap="round"
+                            />
+                            
+                            {/* Hover Interaction (Invisible bars) */}
+                            {stats.moodTrend.map((d, i) => (
+                                <rect
+                                    key={i}
+                                    x={(i / (stats.moodTrend.length - 1)) * 100 - 0.5}
+                                    y="0"
+                                    width={100 / stats.moodTrend.length}
+                                    height="100"
+                                    fill="transparent"
+                                    className="hover:bg-gray-900/5 cursor-crosshair group"
+                                >
+                                    <title>{`${d.label}: ${d.score ? d.score.toFixed(1) : 'データなし'}`}</title>
+                                </rect>
+                            ))}
+                        </svg>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                            データが不足しています
+                        </div>
+                    )}
+                 </div>
+            </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 3. Monthly Trends */}
+        {/* 4. Monthly Trends */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center gap-2 mb-6">
                 <TrendingUp size={18} className="text-blue-500" />
