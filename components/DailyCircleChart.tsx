@@ -38,9 +38,11 @@ const CATEGORY_LABELS: Record<ScheduleCategory, string> = {
 
 interface InternalProps extends Props {
   externalHoverId?: string | null;
+  onSliceClick?: (item: ScheduleItem) => void;
+  onAddAt?: (time: string) => void; // called when clicking empty area - returns HH:mm
 }
 
-export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300, externalHoverId = null }) => {
+export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300, externalHoverId = null, onSliceClick, onAddAt }) => {
   const [hoveredItem, setHoveredItem] = useState<ScheduleItem | null>(null);
 
   const center = size / 2;
@@ -62,8 +64,16 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
     return [...schedule].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
   }, [schedule]);
 
+  const hasMidnightSplit = useMemo(() => {
+    return sortedSchedule.some(s => s.category === 'sleep' && s.startTime === '00:00')
+      && sortedSchedule.some(s => s.category === 'sleep' && s.endTime === '23:59');
+  }, [sortedSchedule]);
+
   const slices = useMemo(() => {
-    return sortedSchedule.map((item) => {
+    return sortedSchedule
+      .map((item) => {
+      // If there's a midnight-split for sleep, hide the end-of-day slice (23:59) to avoid showing previous-day sleep
+      if (hasMidnightSplit && item.category === 'sleep' && item.endTime === '23:59') return null;
       const startMinutes = timeToMinutes(item.startTime);
       const endMinutes = timeToMinutes(item.endTime);
       
@@ -95,7 +105,8 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
         colorClass: CATEGORY_COLORS[item.category],
         bgClass: CATEGORY_BG_COLORS[item.category],
       };
-    });
+    })
+    .filter(Boolean) as Array<{item: ScheduleItem; pathData: string; colorClass: string; bgClass: string}>;
   }, [sortedSchedule, radius, innerRadius, center]);
 
   // Clock markers (every 3 hours)
@@ -107,7 +118,23 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
 
   return (
     <div className="relative flex flex-col items-center justify-center">
-      <svg width={size} height={size} className="transform -rotate-0">
+      <svg width={size} height={size} className="transform -rotate-0" onClick={(e) => {
+        // add new event at clicked time
+        if (!onAddAt) return;
+        const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const dx = x - center;
+        const dy = y - center;
+        const angle = Math.atan2(dy, dx); // -PI..PI
+        let percent = (angle + Math.PI/2) / (2 * Math.PI);
+        if (percent < 0) percent += 1;
+        const minutes = Math.round(percent * 1440);
+        const hh = Math.floor(minutes / 60) % 24;
+        const mm = minutes % 60;
+        const time = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+        onAddAt(time);
+      }}>
         {/* Background Circle */}
         <circle cx={center} cy={center} r={radius} className="fill-gray-50 stroke-gray-100" strokeWidth="1" />
         
@@ -122,6 +149,7 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
               style={{ filter: isActive ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))' : undefined }}
               onMouseEnter={() => setHoveredItem(slice.item)}
               onMouseLeave={() => setHoveredItem(null)}
+              onClick={(e) => { e.stopPropagation(); onSliceClick?.(slice.item); }}
             />
           );
         })}
@@ -144,6 +172,8 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
           </text>
         ))}
       </svg>
+  {/* click on empty area to add */}
+
 
       {/* Center Info / Tooltip */}
       <div 

@@ -342,7 +342,13 @@ export const Editor: React.FC<Props> = ({ date }) => {
           </div>
 
           <div className="w-full md:w-72 flex-shrink-0">
-            <DailyCircleChart schedule={schedule} size={250} externalHoverId={hoveredSliceId} />
+            <DailyCircleChart
+              schedule={schedule}
+              size={250}
+              externalHoverId={hoveredSliceId}
+              onSliceClick={(it) => handleScheduleEdit(it)}
+              onAddAt={(t) => handleScheduleAdd(t)}
+            />
 
             <div className="mt-4 bg-white border border-gray-100 rounded-lg shadow-sm p-2">
               <div className="text-xs text-gray-500 font-medium mb-2">今日の予定</div>
