@@ -294,6 +294,11 @@ export const DayScheduleView: React.FC<DayScheduleViewProps> = ({
                       {item.startTime} - {item.endTime}
                     </span>
                   )}
+                  {height > 45 && item.description && (
+                    <span className="text-[10px] opacity-70 truncate mt-0.5 border-t border-current/20 pt-0.5">
+                      {item.description}
+                    </span>
+                  )}
                 </div>
               </div>
             );
