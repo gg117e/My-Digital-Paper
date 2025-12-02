@@ -19,7 +19,7 @@ interface DayScheduleViewProps {
 // Constants & Helpers
 // ----------------------------------------------------------------------
 
-const PIXELS_PER_MINUTE = 1.5;
+const PIXELS_PER_MINUTE = 1.0; // Reduced from 1.5 to make it more compact
 const SNAP_MINUTES = 15; // Snap to 15 minutes
 const HOURS = Array.from({ length: 25 }, (_, i) => i); // 0 to 24
 
@@ -200,11 +200,11 @@ export const DayScheduleView: React.FC<DayScheduleViewProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="relative w-full h-[600px] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-inner custom-scrollbar select-none"
+      className="relative w-full h-[500px] overflow-y-auto bg-gray-50/50 border border-gray-200 rounded-xl shadow-sm custom-scrollbar select-none"
     >
       <div 
         ref={contentRef}
-        className="relative min-h-full cursor-crosshair" 
+        className="relative min-h-full cursor-crosshair bg-white mx-auto max-w-2xl shadow-sm" 
         style={{ height: `${24 * 60 * PIXELS_PER_MINUTE}px` }}
         onMouseDown={handleBackgroundMouseDown}
       >
@@ -212,10 +212,10 @@ export const DayScheduleView: React.FC<DayScheduleViewProps> = ({
         {HOURS.map((hour) => (
           <div
             key={hour}
-            className="absolute w-full border-t border-gray-100 flex items-center pointer-events-none"
+            className="absolute w-full border-t border-gray-100 flex items-center pointer-events-none group"
             style={{ top: `${hour * 60 * PIXELS_PER_MINUTE}px` }}
           >
-            <span className="absolute -top-3 left-2 text-xs text-gray-400 font-mono bg-white px-1 z-10">
+            <span className="absolute -top-2.5 left-2 text-[10px] text-gray-400 font-medium bg-white px-1 z-10 group-hover:text-gray-600 transition-colors">
               {String(hour).padStart(2, '0')}:00
             </span>
           </div>
@@ -286,18 +286,21 @@ export const DayScheduleView: React.FC<DayScheduleViewProps> = ({
                 }}
               >
                 <div className="flex flex-col h-full overflow-hidden">
-                  <span className="text-xs font-bold truncate leading-tight">
-                    {item.title}
-                  </span>
-                  {height > 30 && (
-                    <span className="text-[10px] opacity-80 truncate">
-                      {item.startTime} - {item.endTime}
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs font-bold truncate leading-tight flex-1">
+                      {item.title}
                     </span>
-                  )}
-                  {height > 45 && item.description && (
-                    <span className="text-[10px] opacity-70 truncate mt-0.5 border-t border-current/20 pt-0.5">
+                    {height > 20 && (
+                      <span className="text-[9px] opacity-70 font-mono whitespace-nowrap">
+                        {item.startTime}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {height > 40 && item.description && (
+                    <div className="text-[10px] opacity-80 mt-0.5 leading-snug line-clamp-2 break-words">
                       {item.description}
-                    </span>
+                    </div>
                   )}
                 </div>
               </div>
