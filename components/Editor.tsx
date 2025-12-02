@@ -5,6 +5,7 @@ import { AutoResizeTextarea } from './AutoResizeTextarea';
 import { MoodSelector } from './MoodSelector';
 import { DayScheduleView } from './DayScheduleView';
 import { ScheduleEditor } from './ScheduleEditor';
+import { DailyCircleChart } from './DailyCircleChart';
 import { MoodType, ScheduleItem } from '../types';
 import { Save, Hash, Check, Calendar as CalendarIcon } from 'lucide-react';
 
@@ -25,6 +26,10 @@ export const Editor: React.FC<Props> = ({ date }) => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
+  // Sleep quick inputs (bed/wake shown under mood)
+  const [sleepBedTime, setSleepBedTime] = useState<string>('');
+  const [sleepWakeTime, setSleepWakeTime] = useState<string>('');
+  const [hoveredSliceId, setHoveredSliceId] = useState<string | null>(null);
 
   // Schedule Editor State
   const [isScheduleEditorOpen, setIsScheduleEditorOpen] = useState(false);
@@ -87,6 +92,80 @@ export const Editor: React.FC<Props> = ({ date }) => {
     };
     load();
   }, [date, getEntry]);
+
+  // Sync sleep inputs from schedule when schedule changes
+  useEffect(() => {
+    const sleepItems = schedule.filter(s => s.category === 'sleep');
+    if (sleepItems.length === 0) {
+      setSleepBedTime('');
+      setSleepWakeTime('');
+      return;
+    }
+
+    if (sleepItems.length === 1) {
+      setSleepBedTime(sleepItems[0].startTime);
+      setSleepWakeTime(sleepItems[0].endTime);
+      return;
+    }
+
+    // Two or more: try to detect cross-midnight pair
+    // Heuristic: pick the one with start >= 12:00 as bedtime, the one with start < 12:00 as wake segment
+    const late = sleepItems.find(s => Number(s.startTime.split(':')[0]) >= 12) || sleepItems[0];
+    const early = sleepItems.find(s => Number(s.startTime.split(':')[0]) < 12) || sleepItems[1] || sleepItems[0];
+    setSleepBedTime(late.startTime);
+    setSleepWakeTime(early.endTime);
+  }, [schedule]);
+
+  const updateSleepInSchedule = (bed: string, wake: string) => {
+    // Remove existing sleep items
+    let newSchedule = schedule.filter(s => s.category !== 'sleep');
+
+    if (!bed || !wake) {
+      handleChange(title, content, mood, tags, newSchedule);
+      return;
+    }
+
+    // If bed <= wake, single segment; otherwise split across midnight
+    const bedMinutes = Number(bed.split(':')[0]) * 60 + Number(bed.split(':')[1]);
+    const wakeMinutes = Number(wake.split(':')[0]) * 60 + Number(wake.split(':')[1]);
+
+    if (bedMinutes <= wakeMinutes) {
+      newSchedule = [
+        ...newSchedule,
+        {
+          id: crypto.randomUUID(),
+          startTime: bed,
+          endTime: wake,
+          title: '睡眠',
+          category: 'sleep',
+          description: '',
+        },
+      ];
+    } else {
+      // bed -> 23:59 and 00:00 -> wake
+      newSchedule = [
+        ...newSchedule,
+        {
+          id: crypto.randomUUID(),
+          startTime: bed,
+          endTime: '23:59',
+          title: '睡眠',
+          category: 'sleep',
+          description: '',
+        },
+        {
+          id: crypto.randomUUID(),
+          startTime: '00:00',
+          endTime: wake,
+          title: '睡眠',
+          category: 'sleep',
+          description: '',
+        },
+      ];
+    }
+
+    handleChange(title, content, mood, tags, newSchedule);
+  };
 
   const handleSave = async (t: string, c: string, m: MoodType, tg: string[], s: ScheduleItem[]) => {
     await saveEntry(date, t, c, tg, m, s);
@@ -186,50 +265,105 @@ export const Editor: React.FC<Props> = ({ date }) => {
         className="w-full bg-transparent text-2xl font-bold text-gray-800 placeholder-gray-300 focus:outline-none mb-6"
       />
 
-      <MoodSelector selectedMood={mood} onChange={(newMood) => handleChange(title, content, newMood, tags, schedule)} />
+      <div className="mb-6">
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="flex-1">
+            <MoodSelector selectedMood={mood} onChange={(newMood) => handleChange(title, content, newMood, tags, schedule)} />
 
-      <div className="mb-6 flex flex-wrap gap-2 items-center">
-        {tags.map(tag => (
-          <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-gray-50 text-gray-600 text-sm rounded-full">
-            <Hash size={12} />
-            {tag}
-            <button onClick={() => removeTag(tag)} className="hover:text-red-500 ml-1">×</button>
-          </span>
-        ))}
-        <div className="relative">
-          <Hash size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300" />
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => {
-                setTagInput(e.target.value);
-                setShowSuggestions(true);
-            }}
-            onKeyDown={handleAddTag}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            placeholder="タグを追加..."
-            className="pl-7 pr-3 py-1 bg-transparent text-sm focus:outline-none placeholder-gray-300 min-w-[100px]"
-          />
-          {/* Suggestions Dropdown */}
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-100 rounded-lg shadow-lg z-10 min-w-[150px] max-h-40 overflow-y-auto">
-                {suggestions.map(tag => (
-                    <button
-                        key={tag}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                        onClick={() => {
-                            const newTags = [...tags, tag];
-                            setTagInput('');
-                            handleChange(title, content, mood, newTags, schedule);
-                            setShowSuggestions(false);
-                        }}
-                    >
-                        #{tag}
-                    </button>
-                ))}
+            <div className="mt-4 flex flex-wrap gap-2 items-center">
+              {tags.map(tag => (
+                <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-gray-50 text-gray-600 text-sm rounded-full">
+                  <Hash size={12} />
+                  {tag}
+                  <button onClick={() => removeTag(tag)} className="hover:text-red-500 ml-1">×</button>
+                </span>
+              ))}
+              <div className="relative">
+                <Hash size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300" />
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => {
+                      setTagInput(e.target.value);
+                      setShowSuggestions(true);
+                  }}
+                  onKeyDown={handleAddTag}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  placeholder="タグを追加..."
+                  className="pl-7 pr-3 py-1 bg-transparent text-sm focus:outline-none placeholder-gray-300 min-w-[100px]"
+                />
+                {/* Suggestions Dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-100 rounded-lg shadow-lg z-10 min-w-[150px] max-h-40 overflow-y-auto">
+                      {suggestions.map(tag => (
+                          <button
+                              key={tag}
+                              className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                              onClick={() => {
+                                  const newTags = [...tags, tag];
+                                  setTagInput('');
+                                  handleChange(title, content, mood, newTags, schedule);
+                                  setShowSuggestions(false);
+                              }}
+                          >
+                              #{tag}
+                          </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+
+            {/* Sleep quick inputs */}
+            <div className="mt-4 flex items-center gap-3 flex-wrap">
+              <label className="text-sm text-gray-600">就寝</label>
+              <input
+                type="time"
+                value={sleepBedTime}
+                onChange={(e) => {
+                  setSleepBedTime(e.target.value);
+                  updateSleepInSchedule(e.target.value, sleepWakeTime);
+                }}
+                className="bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-sm"
+              />
+
+              <label className="text-sm text-gray-600">起床</label>
+              <input
+                type="time"
+                value={sleepWakeTime}
+                onChange={(e) => {
+                  setSleepWakeTime(e.target.value);
+                  updateSleepInSchedule(sleepBedTime, e.target.value);
+                }}
+                className="bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="w-full md:w-72 flex-shrink-0">
+            <DailyCircleChart schedule={schedule} size={250} externalHoverId={hoveredSliceId} />
+
+            <div className="mt-4 bg-white border border-gray-100 rounded-lg shadow-sm p-2">
+              <div className="text-xs text-gray-500 font-medium mb-2">今日の予定</div>
+              <ul className="text-sm text-gray-700 divide-y">
+                {schedule.slice().sort((a,b) => a.startTime.localeCompare(b.startTime)).map(item => (
+                  <li
+                    key={item.id}
+                    onMouseEnter={() => setHoveredSliceId(item.id)}
+                    onMouseLeave={() => setHoveredSliceId(null)}
+                    className="py-2 px-1 flex items-center justify-between hover:bg-gray-50 rounded-md cursor-default"
+                  >
+                    <div className="flex flex-col">
+                      <div className="font-medium text-sm truncate" title={item.title}>{item.title}</div>
+                      <div className="text-xs text-gray-400">{item.startTime} — {item.endTime}</div>
+                    </div>
+                    <div className="text-xs text-gray-400 ml-2">{item.category}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 
