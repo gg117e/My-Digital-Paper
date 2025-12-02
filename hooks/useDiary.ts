@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { DiaryEntry } from '../types';
+import { DiaryEntry, ScheduleItem } from '../types';
 import { storageService } from '../services/storageService';
 
 export const useDiary = () => {
@@ -15,7 +15,7 @@ export const useDiary = () => {
     }
   }, []);
 
-  const saveEntry = useCallback(async (date: string, title: string, content: string, tags: string[], mood?: string) => {
+  const saveEntry = useCallback(async (date: string, title: string, content: string, tags: string[], mood?: string, schedule?: ScheduleItem[]) => {
     setSaving(true);
     try {
       const result = await storageService.upsertEntry({
@@ -23,7 +23,8 @@ export const useDiary = () => {
         title,
         content,
         tags,
-        mood: mood || 'neutral'
+        mood: mood || 'neutral',
+        schedule
       });
       return result;
     } finally {

@@ -1,12 +1,13 @@
 -- ====================================
 -- Digital Paper - Supabase Schema
+-- titleカラムとscheduleカラムを含む完全版
 -- ====================================
+
+-- 既存のテーブルを削除
+drop table if exists public.entries cascade;
 
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
-
--- 既存のテーブルを削除（titleカラムを追加するため）
-drop table if exists public.entries cascade;
 
 -- ====================================
 -- テーブル: entries (日記エントリ)
@@ -18,13 +19,14 @@ create table public.entries (
   content text default '',
   mood text default 'neutral',
   tags text[] default '{}',
+  schedule jsonb default '[]'::jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- インデックスの作成
-create index if not exists entries_date_idx on public.entries(date desc);
-create index if not exists entries_created_at_idx on public.entries(created_at desc);
+create index entries_date_idx on public.entries(date desc);
+create index entries_created_at_idx on public.entries(created_at desc);
 
 -- ====================================
 -- RLS (Row Level Security) の設定
@@ -59,7 +61,6 @@ end;
 $$ language plpgsql;
 
 -- トリガーの作成
-drop trigger if exists on_entries_updated on public.entries;
 create trigger on_entries_updated
   before update on public.entries
   for each row

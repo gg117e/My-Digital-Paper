@@ -1,4 +1,4 @@
-import { DiaryEntry } from '../types';
+import { DiaryEntry, ScheduleItem } from '../types';
 import { supabase } from '../utils/supabase';
 
 // This service now uses Supabase as the backend
@@ -24,7 +24,7 @@ const saveDb = (db: Record<string, DiaryEntry>) => {
 };
 
 export const storageService = {
-  async upsertEntry(entry: { date?: string; entry_date?: string; title?: string; content?: string; tags?: string[]; mood?: string }): Promise<DiaryEntry> {
+  async upsertEntry(entry: { date?: string; entry_date?: string; title?: string; content?: string; tags?: string[]; mood?: string; schedule?: ScheduleItem[] }): Promise<DiaryEntry> {
     // Support both 'date' and 'entry_date' field names
     const dateField = entry.date || entry.entry_date || new Date().toISOString().split('T')[0];
     
@@ -37,6 +37,7 @@ export const storageService = {
           content: entry.content || '',
           tags: entry.tags || [],
           mood: entry.mood || 'normal',
+          schedule: entry.schedule || [], // Save schedule
         }, {
           onConflict: 'date'
         })
@@ -65,6 +66,7 @@ export const storageService = {
         content: entry.content || '',
         tags: entry.tags || [],
         mood: entry.mood || 'normal',
+        schedule: entry.schedule || [],
         created_at: existingId ? db[existingId].created_at : now,
         updated_at: now,
       };

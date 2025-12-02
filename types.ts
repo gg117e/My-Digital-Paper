@@ -19,6 +19,7 @@ export interface Database {
           content: string;
           mood: string;
           tags: string[];
+          schedule: Json; // Added schedule column
           created_at: string;
           updated_at: string;
         };
@@ -28,6 +29,7 @@ export interface Database {
           content?: string;
           mood?: string;
           tags?: string[];
+          schedule?: Json; // Added schedule column
           created_at?: string;
           updated_at?: string;
         };
@@ -37,6 +39,7 @@ export interface Database {
           content?: string;
           mood?: string;
           tags?: string[];
+          schedule?: Json; // Added schedule column
           created_at?: string;
           updated_at?: string;
         };
@@ -48,6 +51,17 @@ export interface Database {
 // ====================================
 // Application Types
 // ====================================
+export type ScheduleCategory = 'work' | 'personal' | 'urgent' | 'study' | 'sleep' | 'routine' | 'other';
+
+export interface ScheduleItem {
+  id: string;
+  startTime: string; // "HH:mm"
+  endTime: string;   // "HH:mm"
+  title: string;
+  description?: string;
+  category: ScheduleCategory;
+}
+
 export interface DiaryEntry {
   id: string;
   date: string; // ISO YYYY-MM-DD
@@ -55,6 +69,7 @@ export interface DiaryEntry {
   content: string;
   mood: string;
   tags: string[];
+  schedule?: ScheduleItem[]; // Added schedule field
   created_at: string;
   updated_at: string;
 }

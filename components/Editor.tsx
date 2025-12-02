@@ -3,8 +3,10 @@ import { useDiary } from '../hooks/useDiary';
 import { storageService } from '../services/storageService';
 import { AutoResizeTextarea } from './AutoResizeTextarea';
 import { MoodSelector } from './MoodSelector';
-import { MoodType } from '../types';
-import { Save, Hash, Check } from 'lucide-react';
+import { DayScheduleView } from './DayScheduleView';
+import { ScheduleEditor } from './ScheduleEditor';
+import { MoodType, ScheduleItem } from '../types';
+import { Save, Hash, Check, Calendar as CalendarIcon } from 'lucide-react';
 
 interface Props {
   date: string;
@@ -16,11 +18,19 @@ export const Editor: React.FC<Props> = ({ date }) => {
   const [content, setContent] = useState('');
   const [mood, setMood] = useState<MoodType>('normal');
   const [tags, setTags] = useState<string[]>([]);
+  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [existingTags, setExistingTags] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [showSchedule, setShowSchedule] = useState(false);
+
+  // Schedule Editor State
+  const [isScheduleEditorOpen, setIsScheduleEditorOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ScheduleItem | undefined>(undefined);
+  const [newItemStartTime, setNewItemStartTime] = useState<string | undefined>(undefined);
+  const [newItemEndTime, setNewItemEndTime] = useState<string | undefined>(undefined);
 
   // Debounce logic
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -34,11 +44,13 @@ export const Editor: React.FC<Props> = ({ date }) => {
         setContent(entry.content || '');
         setMood((entry.mood as MoodType) || 'normal');
         setTags(entry.tags || []);
+        setSchedule(entry.schedule || []);
       } else {
         setTitle('');
         setContent('');
         setMood('normal');
         setTags([]);
+        setSchedule([]);
       }
       
       // Load existing tags for autocomplete
@@ -52,21 +64,22 @@ export const Editor: React.FC<Props> = ({ date }) => {
     load();
   }, [date, getEntry]);
 
-  const handleSave = async (t: string, c: string, m: MoodType, tg: string[]) => {
-    await saveEntry(date, t, c, tg, m);
+  const handleSave = async (t: string, c: string, m: MoodType, tg: string[], s: ScheduleItem[]) => {
+    await saveEntry(date, t, c, tg, m, s);
     setLastSaved(new Date());
   };
 
-  const handleChange = (newTitle: string, newContent: string, newMood: MoodType, newTags: string[]) => {
+  const handleChange = (newTitle: string, newContent: string, newMood: MoodType, newTags: string[], newSchedule: ScheduleItem[]) => {
     setTitle(newTitle);
     setContent(newContent);
     setMood(newMood);
     setTags(newTags);
+    setSchedule(newSchedule);
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     
     timeoutRef.current = setTimeout(() => {
-      handleSave(newTitle, newContent, newMood, newTags);
+      handleSave(newTitle, newContent, newMood, newTags, newSchedule);
     }, 1000); // Auto-save after 1s inactivity
   };
 
@@ -75,13 +88,54 @@ export const Editor: React.FC<Props> = ({ date }) => {
       e.preventDefault();
       const newTags = [...tags, tagInput.trim()];
       setTagInput('');
-      handleChange(title, content, mood, newTags);
+      handleChange(title, content, mood, newTags, schedule);
     }
   };
 
   const removeTag = (tagToRemove: string) => {
     const newTags = tags.filter(t => t !== tagToRemove);
-    handleChange(title, content, mood, newTags);
+    handleChange(title, content, mood, newTags, schedule);
+  };
+
+  // Schedule Handlers
+  const handleScheduleAdd = (startTime: string, endTime?: string) => {
+    setEditingItem(undefined);
+    setNewItemStartTime(startTime);
+    setNewItemEndTime(endTime);
+    setIsScheduleEditorOpen(true);
+  };
+
+  const handleScheduleEdit = (item: ScheduleItem) => {
+    setEditingItem(item);
+    setNewItemStartTime(undefined);
+    setNewItemEndTime(undefined);
+    setIsScheduleEditorOpen(true);
+  };
+
+  const handleScheduleMove = (item: ScheduleItem, newStartTime: string, newEndTime: string) => {
+    const updatedSchedule = schedule.map(s => 
+      s.id === item.id ? { ...s, startTime: newStartTime, endTime: newEndTime } : s
+    );
+    handleChange(title, content, mood, tags, updatedSchedule);
+  };
+
+  const handleEditorSave = (item: ScheduleItem) => {
+    let updatedSchedule;
+    const existingIndex = schedule.findIndex(s => s.id === item.id);
+
+    if (existingIndex >= 0) {
+      updatedSchedule = schedule.map(s => s.id === item.id ? item : s);
+    } else {
+      updatedSchedule = [...schedule, item];
+    }
+    handleChange(title, content, mood, tags, updatedSchedule);
+    setIsScheduleEditorOpen(false);
+  };
+
+  const handleEditorDelete = (id: string) => {
+    const updatedSchedule = schedule.filter(s => s.id !== id);
+    handleChange(title, content, mood, tags, updatedSchedule);
+    setIsScheduleEditorOpen(false);
   };
 
   const suggestions = tagInput.trim() 
@@ -103,12 +157,12 @@ export const Editor: React.FC<Props> = ({ date }) => {
 
       <AutoResizeTextarea
         value={title}
-        onChange={(e) => handleChange(e.target.value, content, mood, tags)}
+        onChange={(e) => handleChange(e.target.value, content, mood, tags, schedule)}
         placeholder="タイトル"
         className="w-full bg-transparent text-2xl font-bold text-gray-800 placeholder-gray-300 focus:outline-none mb-6"
       />
 
-      <MoodSelector selectedMood={mood} onChange={(newMood) => handleChange(title, content, newMood, tags)} />
+      <MoodSelector selectedMood={mood} onChange={(newMood) => handleChange(title, content, newMood, tags, schedule)} />
 
       <div className="mb-6 flex flex-wrap gap-2 items-center">
         {tags.map(tag => (
@@ -143,7 +197,7 @@ export const Editor: React.FC<Props> = ({ date }) => {
                         onClick={() => {
                             const newTags = [...tags, tag];
                             setTagInput('');
-                            handleChange(title, content, mood, newTags);
+                            handleChange(title, content, mood, newTags, schedule);
                             setShowSuggestions(false);
                         }}
                     >
@@ -155,11 +209,45 @@ export const Editor: React.FC<Props> = ({ date }) => {
         </div>
       </div>
 
+      {/* Schedule Toggle & View */}
+      <div className="mb-6">
+        <button 
+            onClick={() => setShowSchedule(!showSchedule)}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-indigo-600 transition-colors mb-2"
+        >
+            <CalendarIcon size={16} />
+            {showSchedule ? 'スケジュールを隠す' : 'スケジュールを表示'}
+        </button>
+        
+        {showSchedule && (
+            <div className="animate-in slide-in-from-top-2 duration-300 mb-6">
+                <DayScheduleView 
+                    schedule={schedule}
+                    onAdd={handleScheduleAdd}
+                    onEdit={handleScheduleEdit}
+                    onMove={handleScheduleMove}
+                    isToday={new Date().toISOString().split('T')[0] === date}
+                />
+            </div>
+        )}
+      </div>
+
       <AutoResizeTextarea
         value={content}
-        onChange={(e) => handleChange(title, e.target.value, mood, tags)}
+        onChange={(e) => handleChange(title, e.target.value, mood, tags, schedule)}
         placeholder="今日はどんな1日でしたか？"
         className="w-full bg-transparent text-base leading-relaxed text-gray-700 placeholder-gray-300 focus:outline-none min-h-[300px]"
+      />
+
+      {/* Schedule Editor Modal */}
+      <ScheduleEditor
+        isOpen={isScheduleEditorOpen}
+        onClose={() => setIsScheduleEditorOpen(false)}
+        onSave={handleEditorSave}
+        onDelete={handleEditorDelete}
+        initialData={editingItem}
+        initialStartTime={newItemStartTime}
+        initialEndTime={newItemEndTime}
       />
     </div>
   );
