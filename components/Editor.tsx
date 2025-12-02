@@ -35,6 +35,25 @@ export const Editor: React.FC<Props> = ({ date }) => {
   // Debounce logic
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const getDefaultSchedule = (): ScheduleItem[] => [
+    { 
+      id: crypto.randomUUID(), 
+      startTime: '07:00', 
+      endTime: '07:30', 
+      title: '起床', 
+      category: 'sleep', 
+      description: 'おはようございます' 
+    },
+    { 
+      id: crypto.randomUUID(), 
+      startTime: '23:30', 
+      endTime: '23:59', 
+      title: '就寝', 
+      category: 'sleep', 
+      description: 'おやすみなさい' 
+    },
+  ];
+
   useEffect(() => {
     const load = async () => {
       setInitialLoading(true);
@@ -44,13 +63,18 @@ export const Editor: React.FC<Props> = ({ date }) => {
         setContent(entry.content || '');
         setMood((entry.mood as MoodType) || 'normal');
         setTags(entry.tags || []);
-        setSchedule(entry.schedule || []);
+        // 既存のエントリでもスケジュールが空ならデフォルトを設定（過去のデータとの整合性を考慮しつつ、空なら入れる）
+        // ただし、意図的に全削除した場合と区別がつかないため、
+        // ここでは「entry.scheduleが存在しない（undefined/null）」場合のみデフォルトを入れるか、
+        // あるいは空配列の場合も入れるか。
+        // ユーザー体験としては、開いたときにデフォルトが入っている方が便利。
+        setSchedule((entry.schedule && entry.schedule.length > 0) ? entry.schedule : getDefaultSchedule());
       } else {
         setTitle('');
         setContent('');
         setMood('normal');
         setTags([]);
-        setSchedule([]);
+        setSchedule(getDefaultSchedule());
       }
       
       // Load existing tags for autocomplete

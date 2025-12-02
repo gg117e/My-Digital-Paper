@@ -45,7 +45,11 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
         if (initialStartTime && !initialEndTime) {
            const [h, m] = initialStartTime.split(':').map(Number);
            const endH = h + 1;
-           setEndTime(`${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+           if (endH >= 24) {
+             setEndTime('23:59');
+           } else {
+             setEndTime(`${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+           }
         }
       }
     }
