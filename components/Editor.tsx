@@ -6,6 +6,7 @@ import { MoodSelector } from './MoodSelector';
 import { DayScheduleView } from './DayScheduleView';
 import { ScheduleEditor } from './ScheduleEditor';
 import { DailyCircleChart } from './DailyCircleChart';
+import { ScheduleListItem } from './ScheduleListItem';
 import { MoodType, ScheduleItem } from '../types';
 import { Save, Hash, Check, Calendar as CalendarIcon } from 'lucide-react';
 
@@ -30,7 +31,7 @@ export const Editor: React.FC<Props> = ({ date }) => {
   const [sleepBedTime, setSleepBedTime] = useState<string>('');
   const [sleepWakeTime, setSleepWakeTime] = useState<string>('');
   const [hoveredSliceId, setHoveredSliceId] = useState<string | null>(null);
-
+  
   // Schedule Editor State
   const [isScheduleEditorOpen, setIsScheduleEditorOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ScheduleItem | undefined>(undefined);
@@ -202,13 +203,39 @@ export const Editor: React.FC<Props> = ({ date }) => {
 
   // Schedule Handlers
   const handleScheduleAdd = (startTime: string, endTime?: string) => {
-    setEditingItem(undefined);
-    setNewItemStartTime(startTime);
-    setNewItemEndTime(endTime);
-    setIsScheduleEditorOpen(true);
+    // Default to 1 hour or specified end time
+    let end = endTime;
+    if (!end) {
+        const [h, m] = startTime.split(':').map(Number);
+        const endH = (h + 1) % 24;
+        end = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+    
+    const newItem: ScheduleItem = {
+        id: crypto.randomUUID(),
+        title: '新規予定',
+        startTime,
+        endTime: end,
+        category: 'work', // default
+        description: ''
+    };
+    
+    const updatedSchedule = [...schedule, newItem];
+    handleChange(title, content, mood, tags, updatedSchedule);
+  };
+
+  const handleScheduleUpdate = (item: ScheduleItem) => {
+    const updatedSchedule = schedule.map(s => s.id === item.id ? item : s);
+    handleChange(title, content, mood, tags, updatedSchedule);
+  };
+
+  const handleScheduleDelete = (id: string) => {
+    const updatedSchedule = schedule.filter(s => s.id !== id);
+    handleChange(title, content, mood, tags, updatedSchedule);
   };
 
   const handleScheduleEdit = (item: ScheduleItem) => {
+    // Keep for modal if needed, but now we use inline
     setEditingItem(item);
     setNewItemStartTime(undefined);
     setNewItemEndTime(undefined);
@@ -346,26 +373,25 @@ export const Editor: React.FC<Props> = ({ date }) => {
               schedule={schedule}
               size={250}
               externalHoverId={hoveredSliceId}
-              onSliceClick={(it) => handleScheduleEdit(it)}
+              onSliceClick={(it) => {
+                // Optional: Scroll to item in list or highlight
+                // For now, just highlight
+              }}
               onAddAt={(t) => handleScheduleAdd(t)}
+              onSliceMove={handleScheduleMove}
             />
 
             <div className="mt-4 bg-white border border-gray-100 rounded-lg shadow-sm p-2">
-              <div className="text-xs text-gray-500 font-medium mb-2">今日の予定</div>
-              <ul className="text-sm text-gray-700 divide-y">
+              <div className="text-xs text-gray-500 font-medium mb-2 px-2">今日の予定</div>
+              <ul className="text-sm text-gray-700">
                 {schedule.slice().sort((a,b) => a.startTime.localeCompare(b.startTime)).map(item => (
-                  <li
+                  <ScheduleListItem
                     key={item.id}
-                    onMouseEnter={() => setHoveredSliceId(item.id)}
-                    onMouseLeave={() => setHoveredSliceId(null)}
-                    className="py-2 px-1 flex items-center justify-between hover:bg-gray-50 rounded-md cursor-default"
-                  >
-                    <div className="flex flex-col">
-                      <div className="font-medium text-sm truncate" title={item.title}>{item.title}</div>
-                      <div className="text-xs text-gray-400">{item.startTime} — {item.endTime}</div>
-                    </div>
-                    <div className="text-xs text-gray-400 ml-2">{item.category}</div>
-                  </li>
+                    item={item}
+                    onUpdate={handleScheduleUpdate}
+                    onDelete={handleScheduleDelete}
+                    onHover={setHoveredSliceId}
+                  />
                 ))}
               </ul>
             </div>

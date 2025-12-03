@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { ScheduleItem, ScheduleCategory } from '../types';
 
 interface Props {
@@ -52,10 +52,20 @@ interface InternalProps extends Props {
   externalHoverId?: string | null;
   onSliceClick?: (item: ScheduleItem) => void;
   onAddAt?: (time: string) => void; // called when clicking empty area - returns HH:mm
+  onSliceMove?: (item: ScheduleItem, newStartTime: string, newEndTime: string) => void;
 }
 
-export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300, externalHoverId = null, onSliceClick, onAddAt }) => {
+export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300, externalHoverId = null, onSliceClick, onAddAt, onSliceMove }) => {
   const [hoveredItem, setHoveredItem] = useState<ScheduleItem | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragMode, setDragMode] = useState<'move' | 'resize-start' | 'resize-end' | null>(null);
+  const [dragStartAngle, setDragStartAngle] = useState<number | null>(null);
+  const [dragOriginalStartMinutes, setDragOriginalStartMinutes] = useState<number | null>(null);
+  const [dragOriginalEndMinutes, setDragOriginalEndMinutes] = useState<number | null>(null);
+  
+  const svgRef = useRef<SVGSVGElement>(null);
+  const isDraggingRef = useRef(false);
+  const wasDraggingRef = useRef(false);
 
   const center = size / 2;
   const radius = size * 0.4;
@@ -65,6 +75,92 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
   };
+
+  const minutesToTime = (totalMinutes: number): string => {
+    const hours = Math.floor(totalMinutes / 60) % 24;
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  };
+
+  // Drag Logic
+  React.useEffect(() => {
+    if (!draggingId || !onSliceMove || !dragMode) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!svgRef.current) return;
+      
+      const rect = svgRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const dx = x - center;
+      const dy = y - center;
+      const angle = Math.atan2(dy, dx); // -PI..PI
+      
+      let currentAngle = angle + Math.PI / 2;
+      if (currentAngle < 0) currentAngle += 2 * Math.PI;
+      
+      let startAngle = dragStartAngle! + Math.PI / 2;
+      if (startAngle < 0) startAngle += 2 * Math.PI;
+
+      let deltaAngle = currentAngle - startAngle;
+      // Normalize delta to -PI..PI to handle crossing 0 angle correctly
+      if (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
+      if (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
+
+      const deltaMinutes = (deltaAngle / (2 * Math.PI)) * 1440;
+      
+      const item = schedule.find(s => s.id === draggingId);
+      if (!item || dragOriginalStartMinutes === null || dragOriginalEndMinutes === null) return;
+
+      let newStartMinutes = dragOriginalStartMinutes;
+      let newEndMinutes = dragOriginalEndMinutes;
+
+      if (dragMode === 'move') {
+        const duration = dragOriginalEndMinutes - dragOriginalStartMinutes;
+        newStartMinutes = dragOriginalStartMinutes + deltaMinutes;
+        newStartMinutes = Math.round(newStartMinutes / 15) * 15;
+        
+        // Normalize to 0-1440
+        if (newStartMinutes < 0) newStartMinutes += 1440;
+        if (newStartMinutes >= 1440) newStartMinutes -= 1440;
+        
+        newEndMinutes = newStartMinutes + duration;
+      } else if (dragMode === 'resize-start') {
+        newStartMinutes = dragOriginalStartMinutes + deltaMinutes;
+        newStartMinutes = Math.round(newStartMinutes / 15) * 15;
+        
+        // Normalize
+        if (newStartMinutes < 0) newStartMinutes += 1440;
+        if (newStartMinutes >= 1440) newStartMinutes -= 1440;
+      } else if (dragMode === 'resize-end') {
+        newEndMinutes = dragOriginalEndMinutes + deltaMinutes;
+        newEndMinutes = Math.round(newEndMinutes / 15) * 15;
+      }
+      
+      onSliceMove(item, minutesToTime(newStartMinutes), minutesToTime(newEndMinutes));
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        wasDraggingRef.current = true;
+        setTimeout(() => { wasDraggingRef.current = false; }, 100);
+      }
+      isDraggingRef.current = false;
+      setDraggingId(null);
+      setDragMode(null);
+      setDragStartAngle(null);
+      setDragOriginalStartMinutes(null);
+      setDragOriginalEndMinutes(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggingId, dragMode, dragStartAngle, dragOriginalStartMinutes, dragOriginalEndMinutes, schedule, onSliceMove, center]);
 
   const getCoordinatesForPercent = (percent: number, r: number) => {
     const x = center + r * Math.cos(2 * Math.PI * percent - Math.PI / 2);
@@ -118,6 +214,11 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
       const label = item.title || CATEGORY_LABELS[item.category];
       const showLabel = (endPercent - startPercent) > 0.04; // Show if > ~1 hour
 
+      // Handle positions
+      const handleRadius = (radius + innerRadius) / 2;
+      const [handleStartX, handleStartY] = getCoordinatesForPercent(startPercent, handleRadius);
+      const [handleEndX, handleEndY] = getCoordinatesForPercent(endPercent, handleRadius);
+
       return {
         item,
         pathData,
@@ -127,6 +228,10 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
         textY,
         label,
         showLabel,
+        handleStartX,
+        handleStartY,
+        handleEndX,
+        handleEndY,
       };
     })
     .filter(Boolean) as Array<{
@@ -138,6 +243,10 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
       textY: number;
       label: string;
       showLabel: boolean;
+      handleStartX: number;
+      handleStartY: number;
+      handleEndX: number;
+      handleEndY: number;
     }>;
   }, [sortedSchedule, radius, innerRadius, center]);
 
@@ -150,9 +259,14 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
 
   return (
     <div className="relative flex flex-col items-center justify-center">
-      <svg width={size} height={size} className="transform -rotate-0" onClick={(e) => {
+      <svg 
+        ref={svgRef}
+        width={size} 
+        height={size} 
+        className="transform -rotate-0 select-none" 
+        onClick={(e) => {
         // add new event at clicked time
-        if (!onAddAt) return;
+        if (!onAddAt || wasDraggingRef.current) return;
         const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -161,7 +275,11 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
         const angle = Math.atan2(dy, dx); // -PI..PI
         let percent = (angle + Math.PI/2) / (2 * Math.PI);
         if (percent < 0) percent += 1;
-        const minutes = Math.round(percent * 1440);
+        let minutes = Math.round(percent * 1440);
+        // Snap to 15 minutes
+        minutes = Math.round(minutes / 15) * 15;
+        if (minutes >= 1440) minutes = 0;
+        
         const hh = Math.floor(minutes / 60) % 24;
         const mm = minutes % 60;
         const time = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
@@ -174,15 +292,92 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
         {slices.map((slice, i) => {
           const isActive = hoveredItem?.id === slice.item.id || externalHoverId === slice.item.id;
           return (
-            <g key={slice.item.id}>
+            <g 
+              key={slice.item.id}
+              onMouseEnter={() => setHoveredItem(slice.item)}
+              onMouseLeave={() => setHoveredItem(null)}
+            >
               <path
                 d={slice.pathData}
                 className={`${slice.bgClass} transition-opacity cursor-pointer stroke-white ${isActive ? 'opacity-100' : 'opacity-80'}`}
                 style={{ filter: isActive ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))' : undefined }}
-                onMouseEnter={() => setHoveredItem(slice.item)}
-                onMouseLeave={() => setHoveredItem(null)}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  if (onSliceMove) {
+                    isDraggingRef.current = true;
+                    const rect = svgRef.current!.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const dx = x - center;
+                    const dy = y - center;
+                    const angle = Math.atan2(dy, dx);
+                    
+                    setDraggingId(slice.item.id);
+                    setDragMode('move');
+                    setDragStartAngle(angle);
+                    setDragOriginalStartMinutes(timeToMinutes(slice.item.startTime));
+                    setDragOriginalEndMinutes(timeToMinutes(slice.item.endTime));
+                  }
+                }}
                 onClick={(e) => { e.stopPropagation(); onSliceClick?.(slice.item); }}
               />
+              
+              {/* Resize Handles (Visible on Hover) */}
+              {isActive && onSliceMove && (
+                <>
+                  {/* Start Handle */}
+                  <circle
+                    cx={slice.handleStartX}
+                    cy={slice.handleStartY}
+                    r={8}
+                    className="fill-white stroke-gray-400 cursor-ew-resize hover:fill-blue-100 hover:stroke-blue-500"
+                    strokeWidth={2}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      isDraggingRef.current = true;
+                      const rect = svgRef.current!.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const y = e.clientY - rect.top;
+                      const dx = x - center;
+                      const dy = y - center;
+                      const angle = Math.atan2(dy, dx);
+                      
+                      setDraggingId(slice.item.id);
+                      setDragMode('resize-start');
+                      setDragStartAngle(angle);
+                      setDragOriginalStartMinutes(timeToMinutes(slice.item.startTime));
+                      setDragOriginalEndMinutes(timeToMinutes(slice.item.endTime));
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  {/* End Handle */}
+                  <circle
+                    cx={slice.handleEndX}
+                    cy={slice.handleEndY}
+                    r={8}
+                    className="fill-white stroke-gray-400 cursor-ew-resize hover:fill-blue-100 hover:stroke-blue-500"
+                    strokeWidth={2}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      isDraggingRef.current = true;
+                      const rect = svgRef.current!.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const y = e.clientY - rect.top;
+                      const dx = x - center;
+                      const dy = y - center;
+                      const angle = Math.atan2(dy, dx);
+                      
+                      setDraggingId(slice.item.id);
+                      setDragMode('resize-end');
+                      setDragStartAngle(angle);
+                      setDragOriginalStartMinutes(timeToMinutes(slice.item.startTime));
+                      setDragOriginalEndMinutes(timeToMinutes(slice.item.endTime));
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </>
+              )}
+
               {slice.showLabel && (
                 <text
                   x={slice.textX}

@@ -87,6 +87,16 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
     { value: 'other', label: 'その他', color: 'bg-gray-100 text-gray-700 border-gray-500' },
   ];
 
+  const snapTimeStr = (timeStr: string) => {
+    if (!timeStr) return timeStr;
+    const [h, m] = timeStr.split(':').map(Number);
+    const totalMinutes = h * 60 + m;
+    const snapped = Math.round(totalMinutes / 15) * 15;
+    const newH = Math.floor(snapped / 60) % 24;
+    const newM = snapped % 60;
+    return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -116,15 +126,19 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
             <div className="flex items-center gap-2">
               <input
                 type="time"
+                step="900"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                onBlur={() => setStartTime(snapTimeStr(startTime))}
                 className="bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
               <span className="text-gray-400">-</span>
               <input
                 type="time"
+                step="900"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                onBlur={() => setEndTime(snapTimeStr(endTime))}
                 className="bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
