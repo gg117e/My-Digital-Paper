@@ -120,21 +120,28 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
         newStartMinutes = dragOriginalStartMinutes + deltaMinutes;
         newStartMinutes = Math.round(newStartMinutes / 15) * 15;
         
-        // Normalize to 0-1440
-        if (newStartMinutes < 0) newStartMinutes += 1440;
-        if (newStartMinutes >= 1440) newStartMinutes -= 1440;
+        // Clamp to 0-1440 (No wrapping)
+        if (newStartMinutes < 0) newStartMinutes = 0;
+        if (newStartMinutes + duration > 1440) newStartMinutes = 1440 - duration;
         
         newEndMinutes = newStartMinutes + duration;
       } else if (dragMode === 'resize-start') {
         newStartMinutes = dragOriginalStartMinutes + deltaMinutes;
         newStartMinutes = Math.round(newStartMinutes / 15) * 15;
         
-        // Normalize
-        if (newStartMinutes < 0) newStartMinutes += 1440;
-        if (newStartMinutes >= 1440) newStartMinutes -= 1440;
+        // Clamp start
+        if (newStartMinutes < 0) newStartMinutes = 0;
+        // Don't let start pass end (min duration 15m)
+        if (newStartMinutes > dragOriginalEndMinutes - 15) newStartMinutes = dragOriginalEndMinutes - 15;
+        
       } else if (dragMode === 'resize-end') {
         newEndMinutes = dragOriginalEndMinutes + deltaMinutes;
         newEndMinutes = Math.round(newEndMinutes / 15) * 15;
+
+        // Clamp end
+        if (newEndMinutes > 1440) newEndMinutes = 1440;
+        // Don't let end go before start (min duration 15m)
+        if (newEndMinutes < dragOriginalStartMinutes + 15) newEndMinutes = dragOriginalStartMinutes + 15;
       }
       
       onSliceMove(item, minutesToTime(newStartMinutes), minutesToTime(newEndMinutes));
@@ -250,12 +257,23 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
     }>;
   }, [sortedSchedule, radius, innerRadius, center]);
 
-  // Clock markers (every 3 hours)
-  const markers = [0, 3, 6, 9, 12, 15, 18, 21].map(hour => {
-    const percent = (hour * 60) / 1440;
-    const [x, y] = getCoordinatesForPercent(percent, radius + 15);
-    return { hour, x, y };
-  });
+  // Grid lines (every 1 hour)
+  const gridLines = useMemo(() => {
+    return Array.from({ length: 24 }).map((_, i) => {
+      const percent = (i * 60) / 1440;
+      const isMajor = i % 3 === 0;
+      // Lines start just outside the circle
+      const rStart = radius + 2; 
+      const rEnd = radius + (isMajor ? 10 : 6);
+      const [x1, y1] = getCoordinatesForPercent(percent, rStart);
+      const [x2, y2] = getCoordinatesForPercent(percent, rEnd);
+      
+      // Text position
+      const [tx, ty] = getCoordinatesForPercent(percent, radius + 20);
+      
+      return { hour: i, x1, y1, x2, y2, tx, ty, isMajor };
+    });
+  }, [radius, center]);
 
   return (
     <div className="relative flex flex-col items-center justify-center">
@@ -397,19 +415,29 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
         {/* Inner Circle (Hole) */}
         <circle cx={center} cy={center} r={innerRadius} className="fill-white" />
 
-        {/* Clock Markers */}
-        {markers.map(m => (
-          <text
-            key={m.hour}
-            x={m.x}
-            y={m.y}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            className="text-xs fill-gray-400 font-medium"
-            style={{ fontSize: '10px' }}
-          >
-            {m.hour}
-          </text>
+        {/* Grid Lines and Markers */}
+        {gridLines.map(m => (
+          <React.Fragment key={m.hour}>
+            <line
+              x1={m.x1}
+              y1={m.y1}
+              x2={m.x2}
+              y2={m.y2}
+              className={m.isMajor ? "stroke-gray-400" : "stroke-gray-300"}
+              strokeWidth={m.isMajor ? 2 : 1}
+            />
+            {m.isMajor && (
+              <text
+                x={m.tx}
+                y={m.ty}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="text-[10px] fill-gray-500 font-medium"
+              >
+                {m.hour}
+              </text>
+            )}
+          </React.Fragment>
         ))}
       </svg>
     </div>
