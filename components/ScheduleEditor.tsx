@@ -74,12 +74,16 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
   };
 
   const categories: { value: ScheduleItem['category']; label: string; color: string }[] = [
-    { value: 'work', label: '仕事/作業', color: 'bg-blue-100 text-blue-700 border-blue-500' },
-    { value: 'study', label: '学習/勉強', color: 'bg-indigo-100 text-indigo-700 border-indigo-500' },
-    { value: 'personal', label: '私用', color: 'bg-green-100 text-green-700 border-green-500' },
+    { value: 'research', label: '研究', color: 'bg-purple-100 text-purple-700 border-purple-500' },
+    { value: 'university', label: '大学', color: 'bg-pink-100 text-pink-700 border-pink-500' },
+    { value: 'work', label: '仕事', color: 'bg-blue-100 text-blue-700 border-blue-500' },
+    { value: 'dev', label: '開発', color: 'bg-cyan-100 text-cyan-700 border-cyan-500' },
+    { value: 'study', label: '学習', color: 'bg-indigo-100 text-indigo-700 border-indigo-500' },
+    { value: 'reading', label: '読書', color: 'bg-teal-100 text-teal-700 border-teal-500' },
+    { value: 'hobby', label: '趣味', color: 'bg-green-100 text-green-700 border-green-500' },
     { value: 'routine', label: '生活/ルーティン', color: 'bg-orange-100 text-orange-700 border-orange-500' },
-    { value: 'sleep', label: '睡眠', color: 'bg-purple-100 text-purple-700 border-purple-500' },
-    { value: 'urgent', label: '緊急', color: 'bg-red-100 text-red-700 border-red-500' },
+    { value: 'commute', label: '移動', color: 'bg-yellow-100 text-yellow-700 border-yellow-500' },
+    { value: 'sleep', label: '睡眠', color: 'bg-slate-100 text-slate-700 border-slate-500' },
     { value: 'other', label: 'その他', color: 'bg-gray-100 text-gray-700 border-gray-500' },
   ];
 

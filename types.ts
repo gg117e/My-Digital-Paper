@@ -51,7 +51,7 @@ export interface Database {
 // ====================================
 // Application Types
 // ====================================
-export type ScheduleCategory = 'work' | 'personal' | 'urgent' | 'study' | 'sleep' | 'routine' | 'other';
+export type ScheduleCategory = 'research' | 'university' | 'work' | 'dev' | 'study' | 'reading' | 'hobby' | 'routine' | 'commute' | 'sleep' | 'other';
 
 export interface ScheduleItem {
   id: string;

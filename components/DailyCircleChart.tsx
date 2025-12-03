@@ -7,32 +7,44 @@ interface Props {
 }
 
 const CATEGORY_COLORS: Record<ScheduleCategory, string> = {
+  research: 'text-purple-400',
+  university: 'text-pink-400',
   work: 'text-blue-400',
+  dev: 'text-cyan-400',
   study: 'text-indigo-400',
-  personal: 'text-green-400',
+  reading: 'text-teal-400',
+  hobby: 'text-green-400',
   routine: 'text-orange-400',
-  sleep: 'text-purple-400',
-  urgent: 'text-red-400',
+  commute: 'text-yellow-400',
+  sleep: 'text-slate-600',
   other: 'text-gray-400',
 };
 
 const CATEGORY_BG_COLORS: Record<ScheduleCategory, string> = {
+  research: 'fill-purple-100',
+  university: 'fill-pink-100',
   work: 'fill-blue-100',
+  dev: 'fill-cyan-100',
   study: 'fill-indigo-100',
-  personal: 'fill-green-100',
+  reading: 'fill-teal-100',
+  hobby: 'fill-green-100',
   routine: 'fill-orange-100',
-  sleep: 'fill-purple-100',
-  urgent: 'fill-red-100',
+  commute: 'fill-yellow-100',
+  sleep: 'fill-slate-300',
   other: 'fill-gray-100',
 };
 
 const CATEGORY_LABELS: Record<ScheduleCategory, string> = {
-  work: '仕事/作業',
-  study: '学習/勉強',
-  personal: '私用',
+  research: '研究',
+  university: '大学',
+  work: '仕事',
+  dev: '開発',
+  study: '学習',
+  reading: '読書',
+  hobby: '趣味',
   routine: '生活/ルーティン',
+  commute: '移動',
   sleep: '睡眠',
-  urgent: '緊急',
   other: 'その他',
 };
 
@@ -47,7 +59,7 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
 
   const center = size / 2;
   const radius = size * 0.4;
-  const innerRadius = size * 0.25;
+  const innerRadius = size * 0.15;
 
   const timeToMinutes = (time: string) => {
     const [h, m] = time.split(':').map(Number);
@@ -99,14 +111,34 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
         'Z',
       ].join(' ');
 
+      // Calculate text position
+      const midPercent = (startPercent + endPercent) / 2;
+      const textRadius = (radius + innerRadius) / 2;
+      const [textX, textY] = getCoordinatesForPercent(midPercent, textRadius);
+      const label = item.title || CATEGORY_LABELS[item.category];
+      const showLabel = (endPercent - startPercent) > 0.04; // Show if > ~1 hour
+
       return {
         item,
         pathData,
         colorClass: CATEGORY_COLORS[item.category],
         bgClass: CATEGORY_BG_COLORS[item.category],
+        textX,
+        textY,
+        label,
+        showLabel,
       };
     })
-    .filter(Boolean) as Array<{item: ScheduleItem; pathData: string; colorClass: string; bgClass: string}>;
+    .filter(Boolean) as Array<{
+      item: ScheduleItem; 
+      pathData: string; 
+      colorClass: string; 
+      bgClass: string;
+      textX: number;
+      textY: number;
+      label: string;
+      showLabel: boolean;
+    }>;
   }, [sortedSchedule, radius, innerRadius, center]);
 
   // Clock markers (every 3 hours)
@@ -142,15 +174,28 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
         {slices.map((slice, i) => {
           const isActive = hoveredItem?.id === slice.item.id || externalHoverId === slice.item.id;
           return (
-            <path
-              key={slice.item.id}
-              d={slice.pathData}
-              className={`${slice.bgClass} transition-opacity cursor-pointer stroke-white ${isActive ? 'opacity-100' : 'opacity-80'}`}
-              style={{ filter: isActive ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))' : undefined }}
-              onMouseEnter={() => setHoveredItem(slice.item)}
-              onMouseLeave={() => setHoveredItem(null)}
-              onClick={(e) => { e.stopPropagation(); onSliceClick?.(slice.item); }}
-            />
+            <g key={slice.item.id}>
+              <path
+                d={slice.pathData}
+                className={`${slice.bgClass} transition-opacity cursor-pointer stroke-white ${isActive ? 'opacity-100' : 'opacity-80'}`}
+                style={{ filter: isActive ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))' : undefined }}
+                onMouseEnter={() => setHoveredItem(slice.item)}
+                onMouseLeave={() => setHoveredItem(null)}
+                onClick={(e) => { e.stopPropagation(); onSliceClick?.(slice.item); }}
+              />
+              {slice.showLabel && (
+                <text
+                  x={slice.textX}
+                  y={slice.textY}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="text-[10px] fill-gray-700 font-medium pointer-events-none select-none"
+                  style={{ textShadow: '0px 0px 2px rgba(255,255,255,0.8)' }}
+                >
+                  {slice.label.length > 8 ? slice.label.slice(0, 7) + '..' : slice.label}
+                </text>
+              )}
+            </g>
           );
         })}
 
@@ -172,36 +217,6 @@ export const DailyCircleChart: React.FC<InternalProps> = ({ schedule, size = 300
           </text>
         ))}
       </svg>
-  {/* click on empty area to add */}
-
-
-      {/* Center Info / Tooltip */}
-      <div 
-        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none w-32"
-      >
-        {hoveredItem ? (
-          <div className="animate-in fade-in zoom-in duration-200">
-            <div className={`text-xs font-bold ${CATEGORY_COLORS[hoveredItem.category]}`}>
-              {CATEGORY_LABELS[hoveredItem.category]}
-            </div>
-            <div className="text-sm font-bold text-gray-800 truncate">
-              {hoveredItem.title}
-            </div>
-            <div className="text-xs text-gray-500">
-              {hoveredItem.startTime} - {hoveredItem.endTime}
-            </div>
-            {hoveredItem.description && (
-                <div className="text-[10px] text-gray-400 mt-1 line-clamp-2">
-                    {hoveredItem.description}
-                </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-gray-300 text-xs font-medium">
-            24H Schedule
-          </div>
-        )}
-      </div>
     </div>
   );
 };
